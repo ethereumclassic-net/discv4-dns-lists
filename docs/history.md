@@ -4,14 +4,14 @@ A client with no peers cannot sync, and the nodes it starts from shape its first
 view of the chain. This repository publishes the lists Core-Geth starts from, in
 place of the ones the ETC Cooperative maintained.
 
-## The discovery endpoints v1.12.x starts from
+## The discovery endpoints the v1.12 line starts from
 
 The ETC Cooperative entered maintenance mode at the end of 2024, and its board has
 communicated that it will dissolve.
 [The ETC Cooperative transition](https://docs.coregeth.com/etc-cooperative-transition/)
 lists where each of the services it maintained continues.
 
-Core-Geth `v1.12.x` starts from one DNS tree per network, published from
+The Core-Geth `v1.12` line starts from one DNS tree per network, published from
 [`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists),
 and from the bootnodes compiled into it. From `v1.12.20` to `v1.12.23` those are
 the four Core-Geth `v1.12` bootnodes, three for Ethereum Classic and one for
@@ -25,15 +25,19 @@ are gone, a node on those releases that is new, or has been stopped for a while,
 has nothing compiled in to start from.
 
 > [!IMPORTANT]
-> **A `v1.12.x` node can move to the community-maintained trees with one flag.**
-> [Using the trees](using-the-trees.md#core-geth-v112x) shows the
+> **Move a `v1.12` node to the `v1.13` line, which reads the community-maintained
+> trees by default** and closes the flaws [the audits](https://coregeth.com/security/)
+> found in `v1.12`. [Moving a v1.12 node](moving-from-v1-12.md) has the steps for
+> each platform. A node that cannot move yet can switch to the trees with one flag,
+> a small step that closes none of those flaws.
+> [Using the trees](using-the-trees.md#core-geth-v112-line) shows the
 > `--discovery.dns` flag for each network, and the same list in a config file.
 
 ## What replaces them
 
-This repository and Core-Geth `v1.13.x` replace them from the community's
+This repository and the Core-Geth `v1.13` line replace them from the community's
 organization. The trees here are published under three domain names and rebuilt
-every night. The bootnodes `v1.13.x` ships are run by the Core-Geth maintainers
+every night. The `v1.13` line's bootnodes are run by the Core-Geth maintainers
 and spread across hosting providers and countries. In `v1.13.0`, the three
 Classic bootnodes are with Hetzner in Germany, OVH in the United States and
 Contabo in Singapore, and the two Mordor bootnodes are with Hetzner in Finland and
@@ -54,19 +58,19 @@ it published.
 
 [`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists),
 in the ETC Cooperative's `etclabscore` organization, is the source of the
-`blockd.info` and `etcdisco.net` trees that Core-Geth `v1.12.x` reads, and it ran
-in production for years. This repository was written separately rather than
-forked from it, and several things here come from reading it.
+`blockd.info` and `etcdisco.net` trees that the Core-Geth `v1.12` line reads,
+and it ran in production for years. This repository was written separately
+rather than forked from it, and several things here come from reading it.
 
 **Adopted:** the sort by `lastResponse` then `score` before truncating, so the cap
 keeps the freshest, best-scoring nodes rather than an arbitrary slice; and the
 per-network cap itself, which exists because **Cloudflare limits records per
 zone**.
 
-**Not adopted, deliberately:** its `les.*` trees, for light clients. `v1.13.x`
-reads the `all.*` trees in every sync mode, light included, so an `les.*` tree
-here would spend records on a name no client asks for. Its `snap.*` trees are
-left out for the reason given in
+**Not adopted, deliberately:** its `les.*` trees, for light clients. The `v1.13`
+line reads the `all.*` trees in every sync mode, light included, so an `les.*`
+tree here would spend records on a name no client asks for. Its `snap.*` trees
+are left out for the reason given in
 [How large a tree is](node-selection.md#how-large-a-tree-is-and-why).
 
 **Where this repository differs:** it seeds from the existing published trees

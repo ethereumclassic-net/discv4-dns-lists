@@ -10,20 +10,27 @@ public. They are maintained in the
 developers and community contributors.
 
 > [!IMPORTANT]
-> **Move to the community-maintained trees.** Core-Geth `v1.12.x` finds its first
-> peers through the bootnodes built into it and the DNS trees published from
+> **Move to the community-maintained trees.** The Core-Geth `v1.12` line finds its
+> first peers through the bootnodes built into it and the DNS trees published from
 > [`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists),
 > which the ETC Cooperative maintained. The Cooperative entered maintenance mode at
 > the end of 2024. Its board has communicated that the Cooperative will dissolve
 > and that those trees will stop being updated when it does. From
 > then on they will serve an aging list of nodes until their domains lapse and
-> they stop resolving. The trees published here take their place. Core-Geth
-> [`v1.13.x`](https://github.com/ethereumclassic/core-geth/releases/latest), released
+> they stop resolving. The trees published here take their place. The Core-Geth
+> [`v1.13` line](https://github.com/ethereumclassic/core-geth/releases/latest), released
 > from [`ethereumclassic/core-geth`](https://github.com/ethereumclassic/core-geth),
-> reads them by default, and a `v1.12.x` node can switch to them with
-> [one flag](#quick-start).
+> reads them by default.
 > [The ETC Cooperative transition](https://docs.coregeth.com/etc-cooperative-transition/)
 > lists where the Cooperative's other services continue.
+>
+> Every node on the `v1.12` line should move to the `v1.13` line, which also
+> closes the flaws [the audits](https://coregeth.com/security/) found in `v1.12`.
+> The node keeps its chain data and gets a new P2P node key, which the move
+> requires: one of those flaws leaks bits of the old key.
+> [Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps for Linux,
+> macOS, Windows and Docker. A node that cannot move yet can switch to these trees
+> with [one flag](#quick-start), a small step that closes none of those flaws.
 
 ## The trees
 
@@ -43,11 +50,18 @@ one published tree and is named after the DNS name it serves.
 
 ## Quick start
 
-**Core-Geth `v1.13.x`:** nothing to configure. Both networks read these trees by
-default.
+**Core-Geth `v1.13` line:** nothing to configure. Both networks read these trees
+by default. A config file that `geth dumpconfig` wrote on a `v1.12` release holds
+that release's bootnodes and trees, and the `v1.13` line uses them in place of
+its own:
+[delete three lines](docs/moving-from-v1-12.md#a-config-file-that-dumpconfig-wrote-on-the-v112-line)
+from it.
 
-**Core-Geth `v1.12.x`:** add `--discovery.dns` with the three trees for your
-network.
+**Core-Geth `v1.12` line:** move the node to the `v1.13` line.
+[Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps, and
+[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists the
+release files and their checksums. Until the node can move, add
+`--discovery.dns` with the three trees for its network:
 
 ```sh
 geth --classic --discovery.dns "enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.network"
@@ -60,6 +74,7 @@ geth --classic --discovery.dns "enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZ
 | Page | What it covers |
 |---|---|
 | [Using the trees](docs/using-the-trees.md) | Pointing any Core-Geth release at these trees |
+| [Moving a v1.12 node](docs/moving-from-v1-12.md) | Moving a node to the `v1.13` line on Linux, macOS, Windows or Docker, keeping its chain data |
 | [Verifying a tree](docs/verifying-a-tree.md) | Checking what DNS serves against what this repository recorded |
 | [DNS hosting and outages](docs/dns-outage.md) | What a DNS outage affects, and starting a node without the trees |
 | [How nodes are chosen](docs/node-selection.md) | What gets a node listed, the current fork ID, and tree size |
