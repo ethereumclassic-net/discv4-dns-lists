@@ -21,8 +21,8 @@ signed with the project key and written to DNS; the node sets are committed here
 as the public audit trail.
 
 These trees continue the discovery service the ETC Cooperative maintained through
-`etclabscore/discv4-dns-lists`, and core-geth `v1.13.x` reads them by default. The
-note at the top of `README.md` is the migration guidance for operators.
+`etclabscore/discv4-dns-lists`, and core-geth's `v1.13` line reads them by default.
+The note at the top of `README.md` is the migration guidance for operators.
 
 **This is bootstrap infrastructure for a live network.** A bad publish is not a
 failing build — it is clients that cannot find peers.

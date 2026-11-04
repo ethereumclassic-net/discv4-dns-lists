@@ -6,9 +6,9 @@ signed with the project key and written to DNS; the resulting node sets are
 committed here as the public audit trail.
 
 These trees continue the discovery service the ETC Cooperative maintained through
-`etclabscore/discv4-dns-lists`, and core-geth `v1.13.x` reads them by default. The
-note at the top of `README.md` is the migration guidance for operators; keep it
-consistent with core-geth's own ETC Cooperative transition page.
+`etclabscore/discv4-dns-lists`, and core-geth's `v1.13` line reads them by default.
+The note at the top of `README.md` is the migration guidance for operators; keep
+it consistent with core-geth's own ETC Cooperative transition page.
 
 [`docs/`](docs/) explains *why* each design choice was made and is the reference
 for the mechanism; [README.md](README.md) is the landing page that routes to it.
@@ -200,9 +200,9 @@ correct direction.
   to hear of a failure and of the recovery. Do not close it or remove its label;
   the workflow finds it by label and author, never by title.
 - **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
-  snap discovery at one on any network. No `les.*` — core-geth `v1.13.x` reads
-  the `all.*` trees in every sync mode, light included. Adding either spends the
-  record budget on trees nothing reads.
+  snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
+  reads the `all.*` trees in every sync mode, light included. Adding either spends
+  the record budget on trees nothing reads.
 - **Contact addresses are on `ethereumclassic.net`**, the domain for the public
   goods the `ethereumclassic` organization maintains, and they match Core-Geth's.
   Security reports go to `security@ethereumclassic.net` (`SECURITY.md`), never to
