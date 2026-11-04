@@ -31,7 +31,9 @@ Core-Geth `v1.13` line do not use DNS at all.
 
 A node that cannot find peers can start from the committed records instead. This
 takes the twenty Classic nodes that answered most recently and passes them to the
-node as bootnodes:
+node as bootnodes. Add the flag to the command the node already starts with, and
+keep its other flags: a node on `--datadir` that runs this line as it stands
+starts an empty chain in the default directory.
 
 ```bash
 geth --classic --bootnodes "$(curl -fsSL https://raw.githubusercontent.com/ethereumclassic/discv4-dns-lists/main/all.classic.ethereumclassic.net/nodes.json \
@@ -42,7 +44,8 @@ For Mordor, use `--mordor` and `all.mordor.ethereumclassic.net`. The same file c
 be read from a clone of this repository. Every `v1.12` and `v1.13` release accepts
 these `enr:` records as bootnodes. The flag replaces the built-in list, and a
 malformed entry stops the node from starting, so pass the list as the command
-produces it.
+produces it. Use it for the start that needs it, then take it out: in place of
+the built-in bootnodes it keeps twenty nodes that age from the day you ran it.
 
 ## Bringing the trees back
 

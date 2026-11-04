@@ -1,6 +1,6 @@
 # Moving a v1.12 node on Windows
 
-These steps move a node on Windows from any Core-Geth `v1.12` release to the
+These steps move a node on Windows from Core-Geth `v1.12.17` or later to the
 latest release of the `v1.13` line. The node keeps its data directory and its
 chain data, and gets a new P2P node key.
 [Moving a v1.12 node](../moving-from-v1-12.md) says why each step is there.
@@ -39,12 +39,15 @@ Invoke-WebRequest "$BASE/core-geth-win64-$VERSION.zip.sha256" -OutFile "core-get
 Get-Content "core-geth-win64-$VERSION.zip.sha256"
 ```
 
-Compare the last two lines of output: the letters must match, and case does not
-matter. If they differ, delete the file and download it again rather than
-running it. [coregeth.com/downloads](https://coregeth.com/downloads/#upgrade)
+The last two lines of output are the file's hash, then the published hash
+followed by the file name. The 64 characters before the file name must match the
+file's hash; case does not matter. If they differ, delete the file and download
+it again rather than running it.
+[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade)
 lists every file the release carries.
 
-On a node that holds value, also check where the file came from. This needs the
+Then check where the file came from. It matters most on a node that holds
+account keys or that an exchange, pool or service relies on. This needs the
 [GitHub CLI](https://cli.github.com/), signed in with `gh auth login`:
 
 ```powershell
@@ -59,7 +62,10 @@ It must print `Verification succeeded`. If it does not, do not run the file.
   Startup folder then asks `Terminate batch job (Y/N)?`; type `Y`.
 - **Under a service wrapper:** stop it with that tool.
 
-Wait until the log prints `Blockchain stopped` and the process exits.
+Wait until the log prints `Blockchain stopped` and the process exits. If the
+process exits without that line, the stop was not clean, for example because a
+service manager's stop timeout ended it. You can go on: the node recovers at its
+next start, and its block number may start below the one you recorded.
 
 ## 3. Install the release
 
@@ -72,9 +78,10 @@ Expand-Archive "core-geth-win64-$VERSION.zip" -DestinationPath . -Force
 .\geth.exe version
 ```
 
-Go on only if the first line `.\geth.exe version` prints names a `1.13`
-release, such as `Core-Geth 1.13.0-stable`. `geth-v1.12.exe` is the old binary,
-kept so you can roll back.
+Go on only if `.\geth.exe version` reports `1.13` on its first line:
+`Core-Geth 1.13.0-stable` for a release, or a version ending in `-unstable` for
+a build of `main`. `geth-v1.12.exe` is the old binary, kept so you can roll
+back.
 
 If you built from source in step 1, install that build as
 [Building from source](#building-from-source) says instead.
@@ -108,22 +115,36 @@ commas. `TrustedNodes` takes the same form. With no file yet, save these two
 lines and add `--config` and the file's path to the start command. The client
 ignores `static-nodes.json`, so move its entries here.
 
-Save the file as UTF-8 with no byte order mark. A byte order mark, or UTF-16,
-stops the start with `invalid TOML syntax`.
+Whenever you edit the config file, here or in step 5, save it as UTF-8 with no
+byte order mark. A byte order mark, or UTF-16, stops the start with
+`invalid TOML syntax`.
 
 ## 5. Check the flags and the config file
 
 While the node is down:
 
-- **A config file from the `v1.12` line:** if `geth dumpconfig` wrote it, delete
-  its `BootstrapNodes`, `EthDiscoveryURLs` and `SnapDiscoveryURLs` lines, or the
-  node keeps the `v1.12` bootnodes and trees. A file written by `v1.12.17` or
-  `v1.12.18` also has `ECBP1100` and `ECBP1100Disable` lines, which stop the new
-  release at the start; delete those too.
+- **A config file:** if the node starts with `--config`, open the file and
+  delete any `BootstrapNodes`, `EthDiscoveryURLs` and `SnapDiscoveryURLs` lines,
+  unless you put them there yourself to name bootnodes or trees other than the
+  release's own: the values `geth dumpconfig` writes are the `v1.12` release's,
+  and the new release keeps them with no message. A file a `v1.12.17` or
+  `v1.12.18` node starts from can also set `ECBP1100` or `ECBP1100Disable`,
+  which stop the new release at the start: delete those lines, and if one holds
+  a block number, the file was setting MESS, so decide its setting under
+  **MESS** below. To check, run `.\geth.exe` as the user the node runs as, with
+  the node's flags and `dumpconfig` at the end: the `EthDiscoveryURLs` and
+  `SnapDiscoveryURLs` it prints should each list the three trees for the node's
+  network in [Using the trees](../using-the-trees.md#the-trees). It writes the
+  new node key file if there is none, which is why it has to be that user.
+- **Discovery flags:** take out any `--discovery.dns` or `--bootnodes` you added
+  on the `v1.12` line. The `v1.13` line has both built in; `--bootnodes` would
+  hold the node to the nodes it names, and `--discovery.dns` would leave its
+  snap list empty.
 - **MESS:** add `--mess` or `--mess=false`, the same on every node you run
   ([MESS](../moving-from-v1-12.md#mess)).
 - **RPC exposure:** go through the four
-  [RPC exposure](../moving-from-v1-12.md#rpc-exposure) checks.
+  [RPC exposure](../moving-from-v1-12.md#rpc-exposure) checks, in the flags, any
+  `GETH_` variables and the config file.
 
 ## 6. Start the node and confirm the move
 
@@ -138,13 +159,20 @@ Start the node the way you always do, on the same data directory. Then:
 
 If a line cannot connect, wait a minute and run it again.
 
-- **The name** must be a `v1.13` release.
+- **The name** must show `v1.13`: `-stable` for a release, or `-unstable` for a
+  build of `main`.
 - **The enode ID** must differ from the one you recorded. If it is the same, the
   node is still on the old key: stop it and redo step 4.
 - **The peer count** climbs within minutes. If it stays at zero, see
   [Why does the node have no peers?](https://docs.coregeth.com/operate/troubleshooting/#why-does-the-node-have-no-peers)
-- **The block number** resumes where the node stopped, then catches up. If it
-  settles somewhere else, stop and investigate rather than resync.
+- **The block number** starts at or above the one you recorded, because the node
+  kept syncing until you stopped it, or below it after an unclean stop. Then it
+  climbs. Compare it with a block explorer or another node you run: it should
+  reach the chain head and follow it. If it stops climbing short of the head,
+  stop and investigate rather than resync.
+
+These checks do not show which trees the node reads: the `dumpconfig` check in
+step 5 does.
 
 ### Give the new ID to the nodes that list this one
 
@@ -160,9 +188,12 @@ you recorded, the new one, and the address and port the entry already has:
 
 The first two lines each print `true` and take effect with no restart. The third
 lists the new ID once the nodes connect. The change lasts only until that node
-restarts, so put the new ID in its config file too. For an entry in
-`TrustedNodes`, use `admin.removeTrustedPeer` and `admin.addTrustedPeer`,
-which do not open a connection.
+restarts, so put the new ID in that node's own config file too, in the entry
+that names this one. For an entry in `TrustedNodes`, run
+`admin.removeTrustedPeer` and `admin.addTrustedPeer` the same way: in place of
+the first two lines if the entry is only in `TrustedNodes`, and as well as them
+if it is in both. They open no connection, so for an entry only in
+`TrustedNodes` the third line shows the new ID only once this node connects.
 
 ## If you need to roll back
 
@@ -175,7 +206,9 @@ Remove-Item .\geth.exe
 Rename-Item .\geth-v1.12.exe geth.exe
 ```
 
-Keep the new key: rolling back does not make the old one safe.
+Keep the new key: rolling back does not make the old one safe, and a release
+before `v1.12.21` leaks the new key as it did the old one: move to the `v1.13`
+line again as soon as you can, rotating the key again in step 4.
 
 ## Building from source
 

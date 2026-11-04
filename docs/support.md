@@ -103,5 +103,8 @@ whoever runs it and whoever sponsors this work, and every list published is
 committed here, where anyone can check it. Being credited as a sponsor records a
 contribution. It is not an endorsement of the sponsor's products or services.
 
-Requests and reports are welcome from anyone, sponsor or not, in
+Requests, and reports other than security issues, are welcome from anyone,
+sponsor or not, in
 [this repository's issues](https://github.com/ethereumclassic/discv4-dns-lists/issues).
+Security issues go to <security@ethereumclassic.net>, as
+[`SECURITY.md`](../SECURITY.md) explains.

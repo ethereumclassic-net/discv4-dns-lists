@@ -7,6 +7,10 @@ flaws [the audits](https://coregeth.com/security/) found in `v1.12`. A node that
 cannot move yet can [switch to these trees with one flag](#if-a-node-cannot-move-yet),
 a small step that closes none of those flaws.
 
+The steps are for `v1.12.17` and later. A release before `v1.12.17` does not
+schedule the Spiral upgrade, so a node on one left Ethereum Classic at block
+19,250,000 and does not resume where it stopped.
+
 ## Choose your guide
 
 | The node runs on | Guide |
@@ -28,9 +32,13 @@ file a release carries, with its checksum.
 
 **The chain data stays where it is.** The `v1.12` and `v1.13` lines use the same
 data directory for each network, so the new release opens the chain the old one
-wrote. Nothing is copied and nothing resyncs. The node is down only between the
-stop and the start, usually seconds, although the steps around them take about
-twenty minutes. The account keystore is not touched.
+wrote, and nothing resyncs: only a container that keeps its data inside itself
+needs a copy. The node is down from the clean stop until it has caught up after
+the start: while you install the release, rename the key and check its flags
+and config file, and while it then catches up on the blocks it missed. Point
+RPC clients and miners back at it only then. The steps take about twenty
+minutes; a build from source, or a copy of a container's data, takes longer.
+The account keystore is not touched.
 
 **The P2P node key changes, and that is required.** One of the flaws in
 `v1.12`, CVE-2026-26315, leaks bits of the node key across repeated handshakes,
@@ -41,8 +49,8 @@ renames the old key file aside, so it is kept, and the first start on the
 
 **The enode ID changes with the key.** Anything that names the node by its enode
 ID needs the new one: other nodes that list it as a static or trusted peer,
-anyone else who peers with it deliberately, and monitoring or allowlists. Each
-guide ends with the commands for the nodes.
+anyone else who peers with it deliberately, and monitoring or allowlists. Step 6
+of each guide, step 5 in Docker, ends with the commands to run on those nodes.
 
 **These trees follow by themselves.** The nightly crawl stops publishing the old
 ID once it stops answering, and lists the new one once it finds it, if the node
@@ -52,29 +60,43 @@ is on its network's current fork and makes the tree's cap
 ## A trial node first, if you are new to the v1.13 line
 
 Before moving a node you depend on, you can set up one new node on the `v1.13`
-line beside it, send it no traffic, and let it sync from the network. Do not
-seed it with a copy of a `v1.12` node's data directory: the copy carries that
-node's key. The trial node is optional and separate from the move itself, which
-keeps the chain data in place.
+line, on another machine. Let it peer and sync from the network like any node,
+and point no RPC clients or miners at it. Copy nothing to it from a `v1.12`
+node's data directory, which holds that node's P2P node key, and its account
+keys if it has any. The trial is done when the new node has caught up to the
+chain head and holds peers. It is optional and separate from the move itself,
+which keeps the chain data in place.
 
-## A config file that dumpconfig wrote on the v1.12 line
+## A config file from the v1.12 line
 
-If the node starts with `--config` and its file came from `geth dumpconfig` on a
-`v1.12` release, delete these three lines before the first start on the `v1.13`
-line:
+If the node starts with `--config`, open the file before the first start on the
+`v1.13` line and look for these three lines, whoever wrote it:
 
 - `BootstrapNodes`
 - `EthDiscoveryURLs`
 - `SnapDiscoveryURLs`
 
-The file holds that release's bootnodes and discovery trees, and the `v1.13`
-line keeps them in place of its own, with no message. With the lines gone, it
+`geth dumpconfig` on the `v1.12` line writes all three, holding that release's
+bootnodes and discovery trees, and the `v1.13` line uses them in place of its
+own, with no message. Delete each one unless you put it there yourself to name
+bootnodes or trees other than the release's own. With the lines gone, the node
 uses the bootnodes it ships and the trees published here. `BootstrapNodesV5` can
-stay, because the `v1.13` line replaces it.
+stay: the `v1.13` line puts its own discovery v5 bootnodes in place of the ones
+a `v1.12` file holds.
 
-A file written by `v1.12.17` or `v1.12.18`, two old releases that few nodes run,
-also has `ECBP1100` and `ECBP1100Disable` lines. Delete those as well: a `v1.13`
-release stops at the start on them, with a `Fatal` line that names the key.
+`v1.12.17` and `v1.12.18`, two old releases that few nodes run, accept
+`ECBP1100` and `ECBP1100Disable` in a config file. A `v1.13` release stops at
+the start on either key, with a `Fatal` line that names it, so delete those
+lines too. If one holds a block number, the file was setting MESS: decide its
+setting with `--mess` or `--mess=false`, the same as your other nodes
+([MESS](#mess)).
+
+To see what the node will use, run the new `geth` as the user the node runs as,
+with the node's flags and `dumpconfig` at the end, while the node is stopped. It
+writes the node's new key file if there is none, which is why it has to be that
+user. The `EthDiscoveryURLs` and `SnapDiscoveryURLs` it prints should each list
+the three trees for the node's network in
+[Using the trees](using-the-trees.md#the-trees).
 
 ## MESS
 
@@ -87,20 +109,32 @@ you roll back.
 
 ## RPC exposure
 
-While the node is down, check the flags it starts with:
+While the node is down, check how it serves RPC: in its flags, in any `GETH_`
+variables it starts with, and, if it starts with `--config`, in the file's
+`[Node]` section, where `HTTPHost`, `HTTPModules`, `HTTPCors`, `WSHost`,
+`WSModules` and `WSOrigins` hold the same settings.
 
 - `--http.addr` should be `127.0.0.1` unless a trusted proxy terminates in front
-  of it.
-- `admin`, `debug` and `personal` do not belong in `--http.api` on any reachable
-  interface.
+  of it. On Docker's default bridge network it stays `0.0.0.0`, so the published
+  port can reach the node, and publishing that port on `127.0.0.1` keeps RPC off
+  other machines. A container run with `--network host` publishes no ports, so
+  there `--http.addr` must be `127.0.0.1`, as on a host.
+- `admin`, `debug` and `personal` belong only on IPC or on `127.0.0.1`: never in
+  `--http.api` or `--ws.api` on an address another machine can reach, a private
+  network included. In a container, keep them off HTTP and WebSocket altogether
+  and reach them over IPC with `docker exec`: other containers on its network
+  can reach its `0.0.0.0`.
 - `--http.corsdomain="*"` allows any origin. Name the origins you need.
-- The same applies to `--ws.addr` and `--ws.api`.
+- The same checks apply to WebSocket: `--ws.addr`, `--ws.api`, and
+  `--ws.origins` in place of `--http.corsdomain`.
 
 ## If a node cannot move yet
 
 `--discovery.dns` points a `v1.12` node at the trees published here, the ones
 the `v1.13` line reads by default, so it keeps finding peers after the trees it
 reads by default stop being updated. It is a small step, and the node stays
-vulnerable: the flag closes none of the flaws the audits found in `v1.12`.
+vulnerable: the flag closes none of the flaws the audits found in `v1.12`. The
+flag sets only `EthDiscoveryURLs`, so a node started from a config file that
+names trees needs them replaced in the file as well.
 [Using the trees](using-the-trees.md#core-geth-v112-line) gives the flag for each
 network, the config-file form, and how to add it to a service or a container.

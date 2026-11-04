@@ -10,8 +10,9 @@ public. They are maintained in the
 developers and community contributors.
 
 > [!IMPORTANT]
-> **Move to the community-maintained trees.** The Core-Geth `v1.12` line finds its
-> first peers through the bootnodes built into it and the DNS trees published from
+> **Move `v1.12` nodes to the `v1.13` line, which reads the
+> community-maintained trees.** The Core-Geth `v1.12` line finds its first peers
+> through the bootnodes built into it and the DNS trees published from
 > [`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists),
 > which the ETC Cooperative maintained. The Cooperative entered maintenance mode at
 > the end of 2024. Its board has communicated that the Cooperative will dissolve
@@ -45,29 +46,34 @@ enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.mordor.ether
 
 `all.classic.` is Ethereum Classic and `all.mordor.` is its Mordor test network.
 All six are signed by one key, the text between `enrtree://` and `@`, and the
-same URLs are compiled into Core-Geth. Each directory in this repository holds
-one published tree and is named after the DNS name it serves.
+same URLs are compiled into the Core-Geth `v1.13` line. Each directory in this
+repository holds one published tree and is named after the DNS name it serves.
 
 ## Quick start
 
-**Core-Geth `v1.13` line:** nothing to configure. Both networks read these trees
-by default. A config file that `geth dumpconfig` wrote on a `v1.12` release holds
-that release's bootnodes and trees, and the `v1.13` line uses them in place of
-its own:
-[delete three lines](docs/moving-from-v1-12.md#a-config-file-that-dumpconfig-wrote-on-the-v112-line)
-from it.
+**Core-Geth `v1.13` line:** nothing to configure unless the node starts from a
+config file, or with a discovery flag added on the `v1.12` line. Both networks
+read these trees by default. A file that names bootnodes or trees, as one
+`geth dumpconfig` wrote on a `v1.12` release does, takes their place with no
+message:
+[delete those lines](docs/moving-from-v1-12.md#a-config-file-from-the-v112-line)
+from it, and take out any `--discovery.dns` or `--bootnodes` added on the
+`v1.12` line.
 
 **Core-Geth `v1.12` line:** move the node to the `v1.13` line.
 [Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps, and
 [coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists the
-release files and their checksums. Until the node can move, add
-`--discovery.dns` with the three trees for its network:
+release files and their checksums. Until the node can move, stop it cleanly and
+add `--discovery.dns` with the three trees for its network to the command or
+unit it already starts with, keeping its other flags:
 
 ```sh
 geth --classic --discovery.dns "enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.network"
 ```
 
-[Using the trees](docs/using-the-trees.md) has the Mordor and config-file forms.
+A node started from a config file that names trees needs them in place of the
+file's own. [Using the trees](docs/using-the-trees.md#core-geth-v112-line) has
+that form and the Mordor one.
 
 ## Documentation
 

@@ -85,8 +85,10 @@ message.
 
 **No `snap.*` trees are published.** No Core-Geth path points snap discovery at
 one on any network: wherever a release sets its built-in trees, it sets
-`SnapDiscoveryURLs` to the same list as `EthDiscoveryURLs`, and
-`--discovery.dns` sets only `EthDiscoveryURLs`.
+`SnapDiscoveryURLs` to the same list as `EthDiscoveryURLs`. Given
+`--discovery.dns`, a release sets no built-in trees and the flag fills only
+`EthDiscoveryURLs`, so `SnapDiscoveryURLs` holds only what a config file puts
+there.
 Publishing them would spend roughly 45% of the record budget on trees nothing
 reads, which on a 200-record budget is the difference between 120 published
 classic nodes and 65.

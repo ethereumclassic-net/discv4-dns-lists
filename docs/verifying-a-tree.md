@@ -19,8 +19,9 @@ diff <(jq -r 'keys[]' live/nodes.json | sort) \
 ```
 
 `diff` compares the node IDs served in DNS with the ones committed here, so pull
-first. Keep the output directory (`live` above): without one, `devp2p` writes into
-a directory named after the tree, which in this repository is the committed copy.
+first. Always pass an output directory, `live` above: without one, `devp2p`
+writes into a directory named after the tree, which in this repository is the
+committed copy.
 
 ## Check the sequence number
 

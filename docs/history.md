@@ -1,8 +1,8 @@
 # Why this repository exists
 
 A client with no peers cannot sync, and the nodes it starts from shape its first
-view of the chain. This repository publishes the lists Core-Geth starts from, in
-place of the ones the ETC Cooperative maintained.
+view of the chain. This repository publishes the trees the Core-Geth `v1.13`
+line starts from, in place of the ones the ETC Cooperative maintained.
 
 ## The discovery endpoints the v1.12 line starts from
 
@@ -12,17 +12,20 @@ communicated that it will dissolve.
 lists where each of the services it maintained continues.
 
 The Core-Geth `v1.12` line starts from one DNS tree per network, published from
-[`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists),
-and from the bootnodes compiled into it. From `v1.12.20` to `v1.12.23` those are
-the four Core-Geth `v1.12` bootnodes, three for Ethereum Classic and one for
+[`etclabscore/discv4-dns-lists`](https://github.com/etclabscore/discv4-dns-lists):
+from `v1.12.17` on, `blockd.info` for Mordor, and for Ethereum Classic
+`blockd.info` up to `v1.12.21` and `etcdisco.net` from `v1.12.22`. It also
+starts from the bootnodes compiled into it. From `v1.12.20` to `v1.12.23` those
+are the four Core-Geth `v1.12` bootnodes, three for Ethereum Classic and one for
 Mordor, all with the same hosting provider. An attack in March 2026 repeatedly
 crashed two of the three Classic bootnodes, as the
 [March 2026 security audit](https://docs.coregeth.com/audits/2026-03-security-audit/)
 records. The board has also communicated that the `v1.12` trees will stop being
 updated as the ETC Cooperative dissolves. They will then serve an aging list of
 nodes until their domains lapse and they stop resolving. Once those endpoints
-are gone, a node on those releases that is new, or has been stopped for a while,
-has nothing compiled in to start from.
+are gone, a `v1.12` node with no saved peers it can still reach, such as a new
+node or one stopped long enough that its peers have moved on, has nothing
+compiled in to start from.
 
 > [!IMPORTANT]
 > **Move a `v1.12` node to the `v1.13` line, which reads the community-maintained
