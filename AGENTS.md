@@ -38,8 +38,11 @@ That absence is real; do not go looking for a manifest to update.
 **`devp2p` must be built from [`ethereumclassic/core-geth`](https://github.com/ethereumclassic/core-geth).**
 Upstream go-ethereum's copy has no `classic` or `mordor` value for
 `-eth-network` and rejects them with exit 1, so a build from the wrong source
-fails the run rather than quietly publishing an empty tree. The Go version comes
-from core-geth's own `go.mod`; this repository pins none.
+fails the run rather than quietly publishing an empty tree. It is built with
+core-geth's own `go run build/ci.go install -dlgo`, which compiles it with the
+Go that core-geth's `build/checksums.txt` pins for its releases. The version
+moves when core-geth moves that pin, the workflow refuses a binary compiled by
+any other Go, and this repository pins none.
 
 ## Commands
 
@@ -47,13 +50,14 @@ Every command below exists. There is **no `test`, `lint`, `build` or `fmt`
 target of any kind**, because there is no task runner to define one in.
 
 ```bash
-# Build the tool (required before anything else)
+# Build the tool (required before anything else), with the Go core-geth pins,
+# which the first run downloads
 git clone https://github.com/ethereumclassic/core-geth.git /tmp/core-geth
-cd /tmp/core-geth && go build -o /tmp/devp2p ./cmd/devp2p
+cd /tmp/core-geth && go run build/ci.go install -dlgo ./cmd/devp2p
 
 # Dry run: crawls, filters and caps, but never signs or publishes.
 # Needs no secrets. This is the safe way to see what a crawl would produce.
-DEVP2P=/tmp/devp2p CORE_GETH_SRC=/tmp/core-geth ./scripts/update-lists.sh --dry-run
+DEVP2P=/tmp/core-geth/build/bin/devp2p CORE_GETH_SRC=/tmp/core-geth ./scripts/update-lists.sh --dry-run
 ```
 
 Exit codes: `0` published or dry run clean, `1` refused or failed, `2`

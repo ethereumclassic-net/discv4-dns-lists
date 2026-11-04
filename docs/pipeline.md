@@ -109,12 +109,14 @@ shows the gap.
 
 ```bash
 git clone https://github.com/ethereumclassic/core-geth.git /tmp/core-geth
-cd /tmp/core-geth && go build -o /tmp/devp2p ./cmd/devp2p
+cd /tmp/core-geth && go run build/ci.go install -dlgo ./cmd/devp2p
 
 cd /path/to/discv4-dns-lists
-DEVP2P=/tmp/devp2p CORE_GETH_SRC=/tmp/core-geth ./scripts/update-lists.sh --dry-run
+DEVP2P=/tmp/core-geth/build/bin/devp2p CORE_GETH_SRC=/tmp/core-geth ./scripts/update-lists.sh --dry-run
 ```
 
+`-dlgo` builds `devp2p` with the Go that core-geth's `build/checksums.txt` pins,
+the one its releases and the nightly use, and downloads it on first use.
 `--dry-run` crawls, filters and caps but neither signs nor publishes, and needs no
 secrets. Use it to see what a crawl would produce before letting one reach DNS.
 Seeding syncs every seed tree first, so the resolver limits under

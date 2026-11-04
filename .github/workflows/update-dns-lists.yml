@@ -47,17 +47,20 @@ jobs:
         with:
           repository: ethereumclassic/core-geth
           path: .core-geth
-          # A moving branch. This build produces the tool that decides which
-          # nodes are published, so pinning to a commit or tag would be
-          # stronger; a branch is used deliberately, because the crawl is seeded
-          # from the bootnode list in this same checkout and should track what
-          # the client actually ships rather than a frozen copy of it.
+          # A moving branch, deliberately. This build produces the tool that
+          # decides which nodes are published, and tracking main gives it every
+          # fix and dependency bump the night it merges, rather than at the next
+          # release. That relies on core-geth's main changing only through
+          # reviewed pull requests. The crawl is also seeded from the bootnode
+          # list in this checkout.
           #
-          # main is core-geth's default branch, and its go.mod sets the Go
-          # version the next step installs.
+          # main is core-geth's default branch.
           ref: main
 
       - name: Set up Go
+        # This Go only compiles and runs core-geth's build script. go.mod's `go`
+        # line is the minimum that can build core-geth, not the Go its releases
+        # are built with; the next step builds devp2p with that one.
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: .core-geth/go.mod
@@ -79,13 +82,27 @@ jobs:
           cache-dependency-path: .core-geth/go.sum
 
       - name: Build devp2p
+        # Built the way core-geth builds its releases. `ci.go install -dlgo`
+        # downloads the Go that core-geth's build/checksums.txt pins, checks it
+        # against the SHA-256 that file lists, and compiles with it. So devp2p
+        # gets the Go core-geth's main pins, and moves the night that pin does.
+        # The check after the build refuses a binary compiled by any other Go.
+        #
         # Upstream go-ethereum's devp2p has no "classic" or "mordor" value for
         # -eth-network. Its filter REJECTS an unknown network -- measured, exit 1
         # with `unknown network "classic"` -- so a build from the wrong source
         # fails the run loudly rather than publishing an empty tree.
         run: |
           cd .core-geth
-          go build -o "$GITHUB_WORKSPACE/devp2p" ./cmd/devp2p
+          go run build/ci.go install -dlgo ./cmd/devp2p
+          cp build/bin/devp2p "$GITHUB_WORKSPACE/devp2p"
+          want="go$(awk '$2 == "version:golang" {print $3}' build/checksums.txt)"
+          have=$(go version "$GITHUB_WORKSPACE/devp2p" | awk '{print $2}')
+          echo "devp2p compiled with $have; build/checksums.txt pins $want"
+          if [ "$have" != "$want" ]; then
+            echo "::error::devp2p was compiled with $have, not the $want that core-geth pins."
+            exit 1
+          fi
           "$GITHUB_WORKSPACE/devp2p" --version || true
 
       - name: Write signing key
