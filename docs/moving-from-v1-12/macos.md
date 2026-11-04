@@ -23,8 +23,10 @@ Keep the last line's output. It is the node's enode ID, which step 4 changes.
 
 ## 1. Download the release and check it
 
-The node can keep running for this step. On Apple Silicon, where `uname -m`
-prints `arm64`:
+The node can keep running for this step. To build from source instead, build
+now, while the node runs, with [Building from source](#building-from-source): it
+replaces this step's download and step 3's install. On Apple Silicon,
+where `uname -m` prints `arm64`:
 
 ```bash
 VERSION=$(curl -sLo /dev/null -w '%{url_effective}' https://github.com/ethereumclassic/core-geth/releases/latest | sed 's|.*/||')
@@ -87,8 +89,8 @@ The lines assume the old binary is `/usr/local/bin/geth`. `command -v geth`
 shows where yours is, and a launchd agent names the binary it starts in its
 plist. If it is elsewhere, use that path in all three places.
 
-To build the release from source instead, see
-[Building from source](#building-from-source).
+If you built from source in step 1, install that build as
+[Building from source](#building-from-source) says instead.
 
 ## 4. Rotate the P2P node key
 
@@ -193,20 +195,27 @@ Keep the new key: rolling back does not make the old one safe.
 ## Building from source
 
 Building needs Go 1.26 or later and the Xcode Command Line Tools
-(`xcode-select --install`). Build the latest release's tag rather than `main`,
-which keeps moving:
+(`xcode-select --install`). Build `main`, where fixes and dependency updates
+land through reviewed pull requests before they reach a release:
 
 ```bash
-VERSION=$(curl -sLo /dev/null -w '%{url_effective}' https://github.com/ethereumclassic/core-geth/releases/latest | sed 's|.*/||')
-git clone --branch $VERSION --single-branch https://github.com/ethereumclassic/core-geth.git core-geth-$VERSION &&
-  cd core-geth-$VERSION &&
+git clone https://github.com/ethereumclassic/core-geth.git &&
+  cd core-geth &&
   make geth &&
   ./build/bin/geth version
 ```
 
+If a `core-geth` folder is already there, the clone stops on it: remove that
+folder first.
+
+`geth version` prints the version on its first line, such as
+`Core-Geth 1.13.1-unstable`, where `unstable` marks a build that is not a
+release. `main` keeps moving, so note the `Git Commit` line: it names the code
+you built.
+
 Do not clone with `--recursive`: the submodules are several gigabytes, and
-`make geth` does not read them. Then, in that folder, use this in place of
-step 3:
+`make geth` does not read them. At step 3, run these lines in that folder in
+place of the ones there:
 
 ```bash
 ls build/bin/geth &&
@@ -214,3 +223,6 @@ ls build/bin/geth &&
   sudo install -m 0755 build/bin/geth /usr/local/bin/geth &&
   geth version
 ```
+
+Go on only if `geth version` reports `1.13` on its first line, ending in
+`-unstable` for a build of `main`.

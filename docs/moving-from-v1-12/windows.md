@@ -26,7 +26,9 @@ Keep the last line's output. It is the node's enode ID, which step 4 changes.
 
 ## 1. Download the release and check it
 
-The node can keep running for this step.
+The node can keep running for this step. To build from source instead, build
+now, while the node runs, with [Building from source](#building-from-source): it
+replaces this step's download and step 3's install.
 
 ```powershell
 $VERSION = (Invoke-RestMethod "https://api.github.com/repos/ethereumclassic/core-geth/releases/latest").tag_name
@@ -74,8 +76,8 @@ Go on only if the first line `.\geth.exe version` prints names a `1.13`
 release, such as `Core-Geth 1.13.0-stable`. `geth-v1.12.exe` is the old binary,
 kept so you can roll back.
 
-To build the release from source instead, see
-[Building from source](#building-from-source).
+If you built from source in step 1, install that build as
+[Building from source](#building-from-source) says instead.
 
 ## 4. Rotate the P2P node key
 
@@ -178,17 +180,27 @@ Keep the new key: rolling back does not make the old one safe.
 ## Building from source
 
 Building needs Go 1.26 or later and a C compiler on `PATH`, such as MinGW-w64.
-Build the latest release's tag rather than `main`, which keeps moving. Run these
-one line at a time:
+Build `main`, where fixes and dependency updates land through reviewed pull
+requests before they reach a release. Run these one line at a time:
 
 ```powershell
-$VERSION = (Invoke-RestMethod "https://api.github.com/repos/ethereumclassic/core-geth/releases/latest").tag_name
-git clone --branch $VERSION --single-branch https://github.com/ethereumclassic/core-geth.git "core-geth-$VERSION"
-cd "core-geth-$VERSION"
+git clone https://github.com/ethereumclassic/core-geth.git
+cd core-geth
 go run build/ci.go install ./cmd/geth
 .\build\bin\geth.exe version
 ```
 
+If a `core-geth` folder is already there, the clone stops on it: remove that
+folder first.
+
+`.\build\bin\geth.exe version` prints the version on its first line, such as
+`Core-Geth 1.13.1-unstable`, where `unstable` marks a build that is not a
+release. `main` keeps moving, so note the `Git Commit` line: it names the code
+you built.
+
 Do not clone with `--recursive`: the submodules are several gigabytes, and the
-build does not read them. Then, in place of step 3, rename the current
-`geth.exe` to `geth-v1.12.exe` and copy `build\bin\geth.exe` into its folder.
+build does not read them. At step 3, instead of unpacking the release, rename
+the node's `geth.exe` to `geth-v1.12.exe`, copy `build\bin\geth.exe` into the
+folder that holds it, and `cd` back to that folder: the later steps run
+`.\geth.exe` from there. Go on only if `.\geth.exe version` then reports `1.13`
+on its first line, ending in `-unstable` for a build of `main`.
