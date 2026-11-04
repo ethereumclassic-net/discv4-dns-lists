@@ -6,8 +6,10 @@ this repository recorded when the tree was published.
 
 ## Compare a tree with this repository
 
-`devp2p`, in Core-Geth's `alltools` archive, verifies each record as it downloads
-it and writes out the list it verified. From a clone of this repository:
+`devp2p`, in Core-Geth's `alltools` archive
+([coregeth.com/downloads](https://coregeth.com/downloads/#install) lists it),
+verifies each record as it downloads it and writes out the list it verified.
+From a clone of this repository:
 
 ```bash
 devp2p dns sync --timeout 30s \

@@ -84,8 +84,9 @@ crawl finds, up to the cap, and each night's count is in that night's commit
 message.
 
 **No `snap.*` trees are published.** No Core-Geth path points snap discovery at
-one on any network: `SnapDiscoveryURLs` is set equal to `EthDiscoveryURLs` at
-every assignment site, and `SetDNSDiscoveryDefaults` hardcodes protocol `all`.
+one on any network: wherever a release sets its built-in trees, it sets
+`SnapDiscoveryURLs` to the same list as `EthDiscoveryURLs`, and
+`--discovery.dns` sets only `EthDiscoveryURLs`.
 Publishing them would spend roughly 45% of the record budget on trees nothing
 reads, which on a 200-record budget is the difference between 120 published
 classic nodes and 65.
