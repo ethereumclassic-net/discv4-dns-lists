@@ -65,10 +65,9 @@ in the ETC Cooperative's `etclabscore` organization, is the source of the
 and it ran in production for years. This repository was written separately
 rather than forked from it, and several things here come from reading it.
 
-**Adopted:** the sort by `lastResponse` then `score` before truncating, so the cap
-keeps the freshest, best-scoring nodes rather than an arbitrary slice; and the
-per-network cap itself, which exists because **Cloudflare limits records per
-zone**.
+**Adopted:** ranking the node set before truncating it, so the cap keeps chosen
+nodes rather than an arbitrary slice; and the per-network cap itself, which
+exists because **Cloudflare limits records per zone**.
 
 **Not adopted, deliberately:** its `les.*` trees, for light clients. The `v1.13`
 line reads the `all.*` trees in every sync mode, light included, so an `les.*`
@@ -81,7 +80,9 @@ before crawling, publishes only nodes on the current fork ID, and refuses to
 publish a tree that is empty, below an absolute floor, or sharply smaller than the
 last one, or any tree at all on a run where most of the last tree's nodes stopped
 answering. Those checks are additions for this deployment, not corrections to
-prior art.
+prior art. It also ranks the nodes that answered a night's crawl by score rather
+than by the second each answered, which keeps the nodes that stay up, as
+[Which nodes the cap keeps](node-selection.md#which-nodes-the-cap-keeps) shows.
 
 The two also build their working set differently. That repository rebuilds
 `all.json` from its own capped published trees before each crawl, so its size

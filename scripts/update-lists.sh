@@ -520,15 +520,19 @@ publish_tree() {
 
   # Cap the published set against the DNS zone budget -- see CAP_CLASSIC above.
   #
-  # Sort before truncating, so the cap keeps the freshest and best-scoring nodes
-  # rather than an arbitrary slice: `lastResponse` is when the node last answered,
-  # `score` is the crawler's own confidence. Adopted from
-  # etclabscore/discv4-dns-lists, which hit the Cloudflare limit in production.
+  # Rank before truncating, so the cap keeps the nodes most likely to stay up
+  # rather than an arbitrary slice. A node that answered this run ranks ahead of
+  # one that did not; among those, the higher `score` first -- the crawler adds a
+  # point each time a node answers and halves it each time one does not -- then
+  # the later `lastResponse`. Ranked by `lastResponse` first, to the second, a
+  # run's responders fall in the order the crawl reached them, and the cap kept
+  # newly found nodes over long-lived ones -- see docs/node-selection.md.
   local cap; cap=$(cap_for "$net")
-  jq 'to_entries
-      | sort_by(.value.lastResponse, .value.score)
+  jq --arg start "$RUN_START" --argjson cap "$cap" '
+      to_entries
+      | sort_by((.value.lastResponse // "") >= $start, .value.score // 0, .value.lastResponse)
       | reverse
-      | .['"0:$cap"']
+      | .[0:$cap]
       | from_entries' "$dir/nodes.raw.json" > "$dir/nodes.json" \
     || fail "sort/cap failed for $domain"
   rm -f "$dir/nodes.raw.json"

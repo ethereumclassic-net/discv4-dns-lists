@@ -30,14 +30,15 @@ finding more through the discovery network, and the bootnodes compiled into the
 Core-Geth `v1.13` line do not use DNS at all.
 
 A node that cannot find peers can start from the committed records instead. This
-takes the twenty Classic nodes that answered most recently and passes them to the
-node as bootnodes. Add the flag to the command the node already starts with, and
-keep its other flags: a node on `--datadir` that runs this line as it stands
-starts an empty chain in the default directory.
+takes the twenty Classic nodes with the highest scores, the ones that have kept
+answering the nightly crawl, and passes them to the node as bootnodes. Add the
+flag to the command the node already starts with, and keep its other flags: a
+node on `--datadir` that runs this line as it stands starts an empty chain in the
+default directory.
 
 ```bash
 geth --classic --bootnodes "$(curl -fsSL https://raw.githubusercontent.com/ethereumclassic/discv4-dns-lists/main/all.classic.ethereumclassic.net/nodes.json \
-  | jq -r '[to_entries | sort_by(.value.lastResponse) | reverse | .[:20][] | .value.record] | join(",")')"
+  | jq -r '[to_entries | sort_by(.value.score, .value.lastResponse) | reverse | .[:20][] | .value.record] | join(",")')"
 ```
 
 For Mordor, use `--mordor` and `all.mordor.ethereumclassic.net`. The same file can

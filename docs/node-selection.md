@@ -1,7 +1,7 @@
 # How nodes are chosen
 
 This page covers what gets a node into a tree, why a tree holds only nodes on the
-network's current fork, and how large a tree can be.
+network's current fork, how large a tree can be, and which nodes the cap keeps.
 
 ## What gets a node listed
 
@@ -10,8 +10,8 @@ A node is published when it:
 - answers the crawl's discovery pings from a reachable address,
 - carries an `eth` entry in its node record with the network's current fork ID,
   and
-- is among the 120 Classic or 15 Mordor such nodes that answered most recently,
-  ranked by when they last answered and then by score.
+- is among the first 120 Classic or 15 Mordor such nodes in the ranking that
+  [Which nodes the cap keeps](#which-nodes-the-cap-keeps) describes.
 
 The criteria are the same for every node, whoever runs it. The lists start a
 node's search and do not choose its peers: after its first contacts, a node finds
@@ -28,8 +28,8 @@ ID on the network's schedule passes, and only one that is not on it is rejected.
 **That admits nodes a new client cannot sync from.** A node that starts from an
 empty chain advertises the genesis stage in its record until it imports its first
 block, because the record is refreshed only on a new chain head and a snap sync
-sets none until it finishes. Such a node answers every discovery ping, so it
-ranks as fresh.
+sets none until it finishes. Such a node answers every discovery ping, so the
+ranking cannot tell it from a synced one.
 Measured 2026-09-25:
 
 | classic | current `be46d57c` | genesis stage `fc64ec04` | before Spiral `7fd1bb25` |
@@ -92,3 +92,27 @@ there.
 Publishing them would spend roughly 45% of the record budget on trees nothing
 reads, which on a 200-record budget is the difference between 120 published
 classic nodes and 65.
+
+## Which nodes the cap keeps
+
+Classic finds more current nodes than its cap, so the cap ranks them and keeps
+the first 120. A node that answered the night's crawl ranks ahead of one that did
+not. Among those, the higher **score** ranks first: the crawler adds a point each
+time a node answers and halves the score each time it does not, so a high score
+marks a node that has kept answering. A tie goes to the more recent answer.
+
+Ranked instead by when each node last answered, to the second, a night's
+responders fall in the order the crawl happened to reach them, and newly found
+nodes displace long-lived ones. Replayed over the 57 crawls committed from
+2026-09-10 to 2026-11-05, on the nodes where the two rankings disagree:
+
+| | ranked by score | ranked by last answer |
+|---|---|---|
+| answered the next night's crawl | 97% | 89% |
+| answered all of the next seven nights' crawls | 91% | 58% |
+| median time since its first answer | 19 days | 2 days |
+
+The two disagree on up to 13 of a tree's 120 nodes a night, so across a whole
+tree the gain is small. Ranking by score also changes fewer of a tree's nodes
+from night to night: 1.7 a night on average, against 4.3. Mordor's tree has never
+reached its cap, so there the ranking decides nothing.
