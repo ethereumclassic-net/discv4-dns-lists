@@ -30,7 +30,7 @@ That absence is real; do not go looking for a manifest to update.
 |---|---|---|
 | `bash` | `scripts/update-lists.sh` | system |
 | `jq` | sorting and capping node sets | system |
-| `python3` | seed merge and prune, node counts, fork check, shrink and retention baselines | system |
+| `python3` | seed merge and prune, node counts, fork check, shrink and retention baselines, bootnode status | system |
 | `git` | committing published trees | system |
 | `gh` | `scripts/report-status.sh`, the status issue | preinstalled on GitHub runners |
 | `devp2p` | crawl, filter, sign, publish | **built from source, see below** |
@@ -197,8 +197,12 @@ correct direction.
   workflow also keeps a single issue labeled `pipeline-status`, rewrites it
   after every scheduled run, and comments on it only when the state changes.
   GitHub sends no notification for an edit, so subscribing to that issue is how
-  to hear of a failure and of the recovery. Do not close it or remove its label;
-  the workflow finds it by label and author, never by title.
+  to hear of a failure and of the recovery. The issue also lists whether each
+  bootnode Core-Geth ships answered the crawl. A bootnode that misses it does
+  not stop the publish; it gets one comment, which the first run it answers
+  again deletes. Do not close the issue or remove its label; the workflow finds
+  it by label and author, never by title, and finds its bootnode comments by
+  marker and author.
 - **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
   snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
   reads the `all.*` trees in every sync mode, light included. Adding either spends

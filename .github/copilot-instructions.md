@@ -53,7 +53,7 @@ suggest adding one.
 - `bash` — `scripts/update-lists.sh`, the whole pipeline
 - `jq` — sorting and capping node sets
 - `python3` — seed merge and prune, node counts, fork check, shrink and
-  retention baselines
+  retention baselines, bootnode status
 - `gh` — `scripts/report-status.sh`, the status issue; preinstalled on GitHub
   runners
 - `devp2p` — **built from `ethereumclassic/core-geth`**, not from upstream
@@ -130,7 +130,10 @@ correct direction — a client cannot tell a broken crawl from a quiet network.
 
 A refused or failed run is reported on one issue labeled `pipeline-status`,
 which the workflow rewrites after every scheduled run and comments on only when
-the state changes. Subscribe to it for alerts; do not close it.
+the state changes. The issue also lists whether each bootnode Core-Geth ships
+answered the crawl. A bootnode that misses it does not stop the publish; it gets
+one comment, deleted once it answers again. Subscribe to the issue for alerts;
+do not close it.
 
 ## Ask before
 

@@ -100,6 +100,16 @@ success, and on the first success after failures. Subscribing to that one issue
 is how to hear about exactly those, without a new issue or a notification every
 night.
 
+**The same issue lists the bootnodes Core-Geth ships**, from its `params/` lists
+on `main`, and whether each answered that night's crawl, with when it last
+answered and when it last missed. The crawl starts from them and re-checks every
+node it holds, so this comes from the crawl's own record rather than a separate
+ping. A bootnode that misses the crawl does not stop the publish, because
+clients reach the trees without it. Instead the run comments once, naming the
+bootnode, and the first run it answers again deletes that comment, so a
+one-night miss leaves nothing in the thread. One runner's view is not proof that
+a node is down.
+
 The issue is found by its label and its author, never its title, since anyone
 can open an issue with a matching title. If the runner dies before the report
 step runs, nothing is posted; the last-success date in the issue's title is what

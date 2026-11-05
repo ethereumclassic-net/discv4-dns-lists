@@ -42,4 +42,5 @@ whose diff describes the defect before a fix exists.
 
 A refused or failed nightly run is not a vulnerability. Every scheduled run
 reports its result on the issue labeled
-[`pipeline-status`](https://github.com/ethereumclassic/discv4-dns-lists/issues?q=label%3Apipeline-status).
+[`pipeline-status`](https://github.com/ethereumclassic/discv4-dns-lists/issues?q=label%3Apipeline-status),
+along with whether each bootnode Core-Geth ships answered the night's crawl.

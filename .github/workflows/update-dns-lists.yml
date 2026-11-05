@@ -20,8 +20,9 @@ on:
 
 permissions:
   contents: write
-  # For the one status issue this workflow keeps: it is rewritten every run and
-  # commented on when the state changes -- see scripts/report-status.sh.
+  # For the one status issue this workflow keeps: it is rewritten every run,
+  # commented on when the state changes, and a bootnode's comment is deleted
+  # when it answers again -- see scripts/report-status.sh.
   issues: write
 
 concurrency:
@@ -144,6 +145,8 @@ jobs:
             ethereumclassic.net=bc79166f3eca64edddeec1b6e0e4489d
             ethclassic.net=b1a010358b1dbc6af14b6e880af34df8
             ethereumclassic.network=41313b1ad8c6c958fc54086b89d106aa
+          # Whether each bootnode answered the crawl, for the status report.
+          BOOTNODE_STATUS: ${{ runner.temp }}/bootnodes.json
         # The output is kept for the status report. pipefail, because a step's
         # default shell is `bash -e` without it, and `tee` would then turn a
         # refused run into a passing one.
@@ -203,4 +206,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           JOB_STATUS: ${{ job.status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: ./scripts/report-status.sh "$JOB_STATUS" "$RUN_URL" "$RUNNER_TEMP/update-lists.log"
+        run: ./scripts/report-status.sh "$JOB_STATUS" "$RUN_URL" "$RUNNER_TEMP/update-lists.log" "$RUNNER_TEMP/bootnodes.json"

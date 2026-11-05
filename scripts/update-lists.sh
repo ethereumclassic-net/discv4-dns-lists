@@ -173,6 +173,10 @@ fi
 [ -n "$BOOT_MORDOR" ]  || fail "no mordor bootnodes: set CORE_GETH_SRC or MORDOR_BOOTNODES"
 log "seeded from $(tr ',' '\n' <<<"$BOOT_CLASSIC" | wc -l) classic and $(tr ',' '\n' <<<"$BOOT_MORDOR" | wc -l) mordor bootnodes"
 
+# Where this run records whether each of those bootnodes answered its crawl, for
+# the status issue -- see bootnode_status. Unset, the result is only logged.
+BOOTNODE_STATUS="${BOOTNODE_STATUS:-}"
+
 # Seed the node set from published DNS trees, then let the crawl revalidate
 # every one of them. This is not trusting the publishers: the crawl re-pings its
 # input set, and a node that does not answer ranks behind every node that did,
@@ -424,6 +428,82 @@ if prev and back * 100 < len(prev) * int(pct):
 PYEOF
 }
 
+# Record whether each bootnode Core-Geth ships answered this run's crawl, for the
+# status issue -- see scripts/report-status.sh. Read from the crawl's own record
+# rather than pinged again: the crawl starts from these nodes and re-checks every
+# node it holds, so a bootnode's lastResponse already says whether it answered
+# this run. A bootnode is matched by its public key, which its enode URL carries
+# and its node record's `secp256k1` entry holds in compressed form.
+#
+# Informational only. A bootnode that misses the crawl does not stop a publish,
+# because clients reach the trees without it, and a failure here does not stop
+# the run either: the status issue then shows the bootnodes as not checked.
+bootnode_status() {
+  local out="$1"
+  [ -n "$out" ] && rm -f -- "$out"
+  python3 - "$out" "$RUN_START" all.json "classic=$BOOT_CLASSIC" "mordor=$BOOT_MORDOR" <<'PYEOF'
+import base64, json, re, sys
+out, start, current = sys.argv[1:4]
+
+def item(b, i):
+    # One RLP item at b[i]: (payload start, payload end).
+    p = b[i]
+    if p < 0x80: return i, i + 1
+    if p < 0xb8: return i + 1, i + 1 + p - 0x80
+    if p < 0xc0:
+        s = i + 1 + p - 0xb7
+        return s, s + int.from_bytes(b[i + 1:s], "big")
+    if p < 0xf8: return i + 1, i + 1 + p - 0xc0
+    s = i + 1 + p - 0xf7
+    return s, s + int.from_bytes(b[i + 1:s], "big")
+
+def items(b, start, end):
+    out = []
+    while start < end:
+        s, e = item(b, start)
+        out.append((s, e))
+        start = e
+    return out
+
+def record_key(record):
+    # The ENR is [signature, seq, key, value, ...].
+    s = record[4:]
+    raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+    top = items(raw, *item(raw, 0))
+    for k, v in zip(top[2::2], top[3::2]):
+        if raw[k[0]:k[1]] == b"secp256k1":
+            return raw[v[0]:v[1]].hex()
+
+nodes = {}
+for v in json.load(open(current)).values():
+    try:
+        key = record_key(v["record"])
+    except Exception:
+        continue   # a record this cannot read is no bootnode's: those are matched below
+    if key:
+        nodes[key] = v
+
+rows = []
+for arg in sys.argv[4:]:
+    net, _, urls = arg.partition("=")
+    for url in filter(None, urls.split(",")):
+        m = re.fullmatch(r"enode://([0-9a-fA-F]{128})@([^?]+)(\?.*)?", url.strip())
+        if not m:
+            sys.exit("  WARNING: %s bootnode is not an enode URL: %s" % (net, url))
+        pub = bytes.fromhex(m.group(1))
+        # Compressed: 02 or 03 for the parity of y, then x.
+        v = nodes.get((bytes([2 + (pub[-1] & 1)]) + pub[:32]).hex(), {})
+        last = str(v.get("lastResponse") or "")
+        last = None if last[:4] in ("", "0001") else last
+        rows.append({"network": net, "host": m.group(2), "id": m.group(1)[:16].lower(),
+                     "answered": bool(last) and last >= start, "last_answered": last})
+        print("  bootnode %s %s: %s" % (net, m.group(2), "answered" if rows[-1]["answered"]
+              else "did not answer, last answered %s" % (last or "never")))
+if out:
+    json.dump(rows, open(out, "w"), indent=2)
+PYEOF
+}
+
 publish_tree() {
   local domain="$1" publisher="$2" src="$3" net="$4" min="$5" zone="$6"
   shift 6
@@ -524,6 +604,10 @@ seed_from_trees all.json
 crawl classic "$BOOT_CLASSIC" all.json
 crawl mordor  "$BOOT_MORDOR"  all.json
 log "crawl set: $(count all.json) nodes total (both networks, unfiltered)"
+
+# Before the checks below, so a refused run still reports its bootnodes.
+bootnode_status "$BOOTNODE_STATUS" \
+  || log "WARNING: could not read the bootnodes' answers from the crawl; the status issue will show them as not checked"
 
 # Before any tree is published, so a refusal never leaves one domain updated and
 # the others not. A refused run commits nothing, so the scores this crawl cut on
