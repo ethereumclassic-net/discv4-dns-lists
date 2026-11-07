@@ -30,14 +30,13 @@ RUN_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Publishing its result would replace a working tree with a dead one, and the
 # clients that read it have no way to tell the difference. Refuse instead.
 #
-# These are floors against a broken run, NOT targets. Measured 2026-08-28: a
-# seeded 60-second crawl yields 340 classic and 11 mordor; unseeded over 40
-# minutes it yields 44 and 3. So the classic floor sits above the unseeded
-# figure, to catch a run that lost its seed trees.
+# These are floors against a broken run, NOT targets. A run that lost only its
+# seed trees can still clear them; the shrink check in publish_tree is what
+# catches that.
 #
-# MIN_NODES_MORDOR is 5 against an observed 11 deliberately -- Mordor's ceiling
-# is the network, not the crawl, and a floor scaled from classic's numbers would
-# refuse every legitimate Mordor publish.
+# MIN_NODES_MORDOR sits well below a normal night's Mordor count deliberately --
+# Mordor's ceiling is the network, not the crawl, and a floor scaled from
+# classic's numbers would refuse every legitimate Mordor publish.
 MIN_NODES_CLASSIC="${MIN_NODES_CLASSIC:-40}"
 MIN_NODES_MORDOR="${MIN_NODES_MORDOR:-5}"
 
@@ -59,9 +58,7 @@ REACH_MIN_PCT="${REACH_MIN_PCT:-50}"
 # together, as the move to the v1.13 line asks. Refusing then would keep the old
 # tree in DNS, and every later run, comparing against that same committed tree,
 # would refuse again until someone intervened. Counted by endpoint, so a node
-# that answered at the same endpoint under a new key still counts. Over the same
-# runs, between 85.8% and 100% of the classic tree's endpoints answered the next
-# night.
+# that answered at the same endpoint under a new key still counts.
 RETENTION_MIN_PCT="${RETENTION_MIN_PCT:-50}"
 
 # Per-network published-node cap, derived from the DNS zone budget rather than
@@ -92,16 +89,11 @@ cap_for() { case "$1" in classic) echo "$CAP_CLASSIC";; mordor) echo "$CAP_MORDO
 MAX_PER_ADDRESS="${MAX_PER_ADDRESS:-2}"
 
 # And at most this many per /24 (IPv4) or /48 (IPv6) -- see rank_and_cap. The
-# per-address cap holds one machine to MAX_PER_ADDRESS; this holds one subnet,
-# so acquiring many addresses in one /24 buys no more than acquiring one. On the
-# 2026-11-05 pool it drops nothing the per-address cap did not: 101 of 103 /24s
-# held one or two nodes, and the only two holding more were the two single-IP
-# concentrators the per-address cap already capped. It is set equal to
-# MAX_PER_ADDRESS and is a ceiling, not a target. Loosen it only if a provider
-# is ever seen packing more than this many independent operators into one /24 --
-# a /24 is 256 addresses, narrow enough that this is rare, which is why the cap
-# is per-/24 and never per-ASN, a span that would fall on operators who only
-# share a provider.
+# per-address cap holds one machine to MAX_PER_ADDRESS; this spreads a tree
+# across networks as well as machines. It is a ceiling, not a target. A /24 is
+# far narrower than a hosting provider, which is why the limit is per /24 and
+# never per ASN, a span that would fall on operators who only share a provider.
+# Loosen it if independent operators turn out to share one /24.
 MAX_PER_SUBNET="${MAX_PER_SUBNET:-2}"
 
 # The fork hash (EIP-2124 FORK_HASH) a synced node on each network advertises
@@ -113,10 +105,8 @@ MAX_PER_SUBNET="${MAX_PER_SUBNET:-2}"
 # node that starts from an empty chain advertises the genesis stage until it
 # imports its first block: its record is refreshed only on a new chain head, and
 # a snap sync sets none until it finishes. Such a node answers every discovery
-# ping and serves no blocks.
-# Measured 2026-09-25, 73 of the 120 published classic nodes were on the genesis
-# stage, which Ethereum mainnet shares, so the record cannot even say which
-# chain such a node is on. The crawl held 139 classic nodes on this hash.
+# ping and serves no blocks. The genesis stage is also the one Ethereum mainnet
+# shares, so such a record cannot even say which chain the node is on.
 #
 # Pinned, and deliberately not read from core-geth automatically. Nothing the
 # pipeline runs can report a network's current fork ID -- devp2p has no command
@@ -126,9 +116,9 @@ MAX_PER_SUBNET="${MAX_PER_SUBNET:-2}"
 # the nodes serving today's syncing peers are still on the current fork. So the
 # filter stays on the current hash, keeping those responsive nodes in the tree,
 # until a human bumps the pin when the release is cut. keep_current_fork keeps
-# only nodes on the pinned hash; it no longer refuses on a node past it, which
-# one spoofed record could trigger. check_fork_schedule reads core-geth's own
-# config nightly and only WARNS when the schedule has moved beyond the pin.
+# only nodes on the pinned hash and leaves out a node past it. check_fork_schedule
+# reads core-geth's own config nightly and only WARNS when the schedule has moved
+# beyond the pin.
 # Take the value from core-geth's core/forkid/forkid_test.go at release time.
 FORK_HASH_CLASSIC="${FORK_HASH_CLASSIC:-be46d57c}"   # since block 19,250,000 (Spiral)
 FORK_HASH_MORDOR="${FORK_HASH_MORDOR:-3a6b00d7}"     # since block 9,957,000
@@ -226,11 +216,9 @@ BOOTNODE_STATUS="${BOOTNODE_STATUS:-}"
 # missed check and is dropped at zero, and a seeded node that has never answered
 # is pruned in seed_from_trees once no seed tree carries it.
 #
-# It matters most on Mordor. Measured before the first publish: a 15-minute crawl
-# seeded from the one Mordor bootnode core-geth v1.12.x ships matched 3 nodes,
-# while the published trees carried 11 -- so a tree built from the crawl alone
-# would have been a downgrade for anyone who switched to it. Seeded, the crawl
-# starts from everything those trees carry and keeps what still answers.
+# It matters most on Mordor, a network small enough that a crawl from the
+# bootnodes alone finds only part of it in one run. Seeded, the crawl starts from
+# everything those trees carry and keeps what still answers.
 #
 # This project's own trees are seeded first, so a run can rebuild from what it
 # last published if the others stop resolving. Two domains rather than one,
@@ -368,10 +356,9 @@ publish_desec() {
 # It refuses only when NO node carries the pinned hash -- the pin is wrong or the
 # crawl is broken. A node on a later hash is simply left out, never a refusal:
 # whether the network has moved past the pin is core-geth's config to state (read
-# by check_fork_schedule), not a crawled record's to trigger. One spoofed `eth`
-# entry must not be able to freeze every tree, and the nodes still on the current
-# fork are the ones serving today's syncing peers, so they stay published until a
-# human bumps the pin when core-geth cuts the release.
+# by check_fork_schedule), not a crawled record's. The nodes still on the current
+# fork are the ones serving syncing peers, so they stay published until a human
+# bumps the pin when core-geth cuts the release.
 keep_current_fork() {
   local file="$1" net="$2" fork="$3" label="$4"
   python3 - "$file" "$net" "$fork" "$label" <<'PYEOF'
@@ -930,8 +917,8 @@ publish_tree() {
   fi
 
   # The relative check is the one that matters after the first run: replacing a
-  # 120-node tree with a 44-node one is a downgrade for everyone who switched to
-  # it, even though 44 is a healthy crawl-only result.
+  # full tree with a much smaller one is a downgrade for everyone who switched to
+  # it, even when the smaller one is a healthy crawl-only result.
   # Compare against the last COMMITTED tree, not the working file, which this
   # run has already overwritten.
   local prev

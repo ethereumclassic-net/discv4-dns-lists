@@ -152,20 +152,14 @@ Change none of these without reading the reasoning in `docs/pipeline.md`,
   and whatever the zone already holds. Raising either cap eats that headroom.
 - **Per-address limit** — `MAX_PER_ADDRESS=2`. No address publishes more than two
   nodes, whatever seats are left, because one machine is one point of failure
-  however many node keys it runs. On the 2026-11-05 crawl two addresses ran 25 of
-  the answering classic keys between them, one with 20 on consecutive ports; a
-  key-counting ranking publishes all 25, and the cap holds the two to two seats
-  each. A seat only a host already holding two could fill stays empty.
+  however many node keys it runs. A seat only an address already holding two
+  could fill stays empty.
 - **Per-subnet limit** — `MAX_PER_SUBNET=2`. No `/24`, or `/48` for IPv6, publishes
-  more than two nodes either, so acquiring many addresses in one subnet buys no more
-  than acquiring one. The per-address cap holds one machine; this holds one operator
-  spreading over addresses in a subnet it controls. It falls on no operator who only
-  shares a provider: on the 2026-11-05 crawl 101 of the 103 `/24`s held at most two
-  nodes already, and the two that held more were the single-address concentrators the
-  per-address cap had itself capped, so the subnet cap removed nothing further. The
-  ranking stays network-blind: both limits are ceilings, never a tier that ranks a
-  subnet's best node first, which reads as diversity but would hand one node per
-  `/24` a tree-worth of seats on its first night.
+  more than two nodes either, so a tree spreads across networks as well as
+  machines. A `/24` is far narrower than a hosting provider, so the limit does not
+  fall on operators who only share one. Both limits are ceilings on the ranking,
+  never a ranking of their own: the nodes an address or subnet keeps are its
+  best-ranked ones.
 - **Floors** — `MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`. These are floors
   against a broken run, **not targets**. `MIN_NODES_MORDOR` is 5, well below a
   normal night's Mordor count, deliberately: Mordor's ceiling is the network, not
@@ -194,10 +188,9 @@ Change none of these without reading the reasoning in `docs/pipeline.md`,
   published tree keeps only nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
   stage that unsynced and non-ETC nodes advertise. A node on a later hash is left
-  out, never a refusal: one spoofed `eth` entry must not be able to freeze every
-  tree, and the nodes still on the current fork are the ones serving syncing
-  peers, so they stay published until a human bumps the pin. The pin does not
-  follow core-geth automatically, because a fork lands in core-geth's `main`
+  out, never a refusal: the nodes still on the current fork are the ones serving
+  syncing peers, so they stay published until a human bumps the pin. The pin does
+  not follow core-geth automatically, because a fork lands in core-geth's `main`
   config before its release is cut and before it activates on chain, while the
   current-fork nodes keep serving until then. `check_fork_schedule` reads
   core-geth's own config each run and only warns when the schedule has moved past

@@ -42,17 +42,11 @@ seed tree synced: a tree that failed may still carry it, and a run where the
 syncs fail is more likely a resolver or network fault here than a verdict on the
 records.
 
-**Seeding also decides whether a tree is worth publishing at all.** Measured
-2026-08-28, before the first publish:
-
-| | seeded, 60-second crawl | unseeded, 40-minute crawl |
-|---|---|---|
-| classic | 340 | 44 |
-| mordor | 11 | 3 |
-
-Unseeded, a Mordor tree would have carried 3 nodes where the predecessor's carried
-11, a downgrade for anyone who switched to it. Seeded, the crawl starts from
-everything those trees carried and keeps what still answers.
+**Seeding also decides whether a tree is worth publishing at all.** A crawl from
+the bootnodes alone finds only part of each network in one run, Mordor's above
+all, and a tree built from it would carry fewer nodes than the trees clients
+already read. Seeded, the crawl starts from everything those trees carry and
+keeps what still answers.
 
 The yield is low because the discv4 DHT is shared across networks: a crawl seeded
 from ETC bootnodes still walks mostly non-ETC nodes, and `-eth-network` can only
@@ -60,7 +54,7 @@ match a node whose ENR carries an `eth` entry. Many do not.
 
 **`devp2p` must be built from [`ethereumclassic/core-geth`](https://github.com/ethereumclassic/core-geth).**
 Upstream go-ethereum's copy has no `classic` or `mordor` value for `-eth-network`
-and **rejects them**: measured, it exits 1 with
+and **rejects them**, exiting 1 with
 `-eth-network: unknown network "classic"`. A build from the wrong source therefore
 fails the run rather than quietly publishing an empty tree.
 
@@ -130,10 +124,9 @@ crawl, and how many nodes the per-address and per-subnet limits held back.
 not answer. The issue shows the latest run's warnings until the next run
 replaces them. Like any edit, that notifies no one.
 
-The issue is found by its label and its author, never its title, since anyone
-can open an issue with a matching title. If the runner dies before the report
-step runs, nothing is posted; the last-success date in the issue's title is what
-shows the gap.
+The issue is found by its label and its author, never its title. If the runner
+dies before the report step runs, nothing is posted; the last-success date in the
+issue's title is what shows the gap.
 
 ## Running it by hand
 

@@ -112,12 +112,10 @@ hand-edit a `nodes.json`.
   however many node keys it runs. A seat only a host already holding two could
   fill stays empty.
 - **Per-subnet limit** (`MAX_PER_SUBNET=2`): no `/24`, or `/48` for IPv6,
-  publishes more than two either, so spreading over many addresses in one subnet
-  buys no more than one address. It falls on no provider-sharing operator — on
-  the 2026-11-05 crawl 101 of 103 `/24`s already held at most two. Both limits are
-  ceilings, not a ranking tier: ranking each subnet's best node first reads as
-  diversity but would hand one node per `/24` a tree-worth of seats on its
-  first night.
+  publishes more than two either, so a tree spreads across networks as well as
+  machines. A `/24` is far narrower than a hosting provider, so the limit does
+  not fall on operators who only share one. Both limits are ceilings on the
+  ranking, never a ranking of their own.
 - **Floors** (`MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`) are guards against a
   broken run, **not targets**. Mordor's 5 is deliberate — its ceiling is the
   network, not the crawl.
@@ -139,15 +137,15 @@ hand-edit a `nodes.json`.
 - **Fork hashes** (`FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`)
   restrict a tree to nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
-  stage. A node on a later hash is left out, never a refusal: one spoofed record
-  must not freeze every tree, and the current-fork nodes are the ones serving
-  syncing peers. The pin is not read from core-geth automatically, because a fork
-  is scheduled in its `main` config before the release is cut and before it
-  activates on chain; `check_fork_schedule` reads that config each run and only
-  warns when the schedule has moved past the pin. Change a pin only after the
-  network has passed a fork, from `ethereumclassic/core-geth`'s
-  `params/config_classic.go` and `params/config_mordor.go`, and bump
-  `FORK_SCHEDULE_CLASSIC`/`FORK_SCHEDULE_MORDOR` with it.
+  stage. A node on a later hash is left out, never a refusal: the current-fork
+  nodes are the ones serving syncing peers. The pin is not read from core-geth
+  automatically, because a fork is scheduled in its `main` config before the
+  release is cut and before it activates on chain; `check_fork_schedule` reads
+  that config each run and only warns when the schedule has moved past the pin.
+  Change a pin only after the network has passed a fork, from
+  `ethereumclassic/core-geth`'s `params/config_classic.go` and
+  `params/config_mordor.go`, and bump `FORK_SCHEDULE_CLASSIC`/`FORK_SCHEDULE_MORDOR`
+  with it.
 
 A node's score follows its endpoint, IP address and UDP port, across a rotation
 of its node key: a node answering at the endpoint of a key that went silent, on

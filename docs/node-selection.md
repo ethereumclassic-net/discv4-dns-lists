@@ -30,18 +30,9 @@ ID on the network's schedule passes, and only one that is not on it is rejected.
 empty chain advertises the genesis stage in its record until it imports its first
 block, because the record is refreshed only on a new chain head and a snap sync
 sets none until it finishes. Such a node answers every discovery ping, so the
-ranking cannot tell it from a synced one.
-Measured 2026-09-25:
-
-| classic | current `be46d57c` | genesis stage `fc64ec04` | before Spiral `7fd1bb25` |
-|---|---|---|---|
-| published tree, before this check | 46 | 73 | 1 |
-| crawl set, before the cap | 139 | 279 | 2 |
-
-A new node syncing Ethereum Classic mainnet that day dropped 8 distinct peers on
-sync timeouts, and all 8 were in the genesis-stage group. That stage is also the
-one Ethereum mainnet shares, so the record cannot say which chain such a node is
-on.
+ranking cannot tell it from a synced one, but it serves no blocks. That stage is
+also the one Ethereum mainnet shares, so the record cannot say which chain such a
+node is on.
 
 **So [the script](../scripts/update-lists.sh) keeps only nodes on
 `FORK_HASH_CLASSIC` or `FORK_HASH_MORDOR`**, the fork hash a node at the chain
@@ -55,11 +46,10 @@ scheduled fork activates, nodes that announce it as their next fork and nodes
 that do not yet know of it carry the same hash, and both are kept. A node that
 has moved to the hash after the pin is left out of the tree, not a reason to
 refuse the whole publish: the nodes still on the current fork are the ones a
-syncing client needs, and one node advertising a later hash, truthfully or not,
-must not be able to take every tree down. The pin is not read from Core-Geth
-automatically either, because a fork is scheduled in Core-Geth's `main` config
-before its release is cut and before it activates on the chain, while the
-current-fork nodes keep serving until then. Instead the run reads Core-Geth's own
+syncing client needs. The pin is not read from Core-Geth automatically either,
+because a fork is scheduled in Core-Geth's `main` config before its release is
+cut and before it activates on the chain, while the current-fork nodes keep
+serving until then. Instead the run reads Core-Geth's own
 `params/config_classic.go` and `params/config_mordor.go` and warns when their
 fork schedule has moved past the pin, leaving the trees on the current fork until
 a maintainer bumps it for the release. The last published tree stays in DNS, and
@@ -69,8 +59,7 @@ the script never falls back to publishing a stage the network has left.
 
 The cap comes from the DNS zone budget rather than from what the crawl happens
 to find. A tree of N nodes costs N records, plus one for the root, plus about one
-branch record per 11 nodes, measured against real signed trees at 11 nodes → 14
-records and 150 → 165.
+branch record per 11 nodes: 11 nodes take 14 records and 150 take 165.
 
 **Both trees share one budget, and discovery does not get all of it.** A
 Cloudflare zone created on or after 2024-09-01 on the free plan holds **200
@@ -117,41 +106,21 @@ than two, even with seats left over.
 
 ### At most two seats per address, and per subnet
 
-One machine is one point of failure however many node keys it runs, and ranked
-by node alone a host running many keys would hold a seat for each. So no address
-publishes more than two nodes, whatever seats are left over. Measured on the
-2026-11-05 crawl, the 134 Classic nodes that answered sat on 102 addresses, two
-of which ran 25 of the answering keys between them, one of them with 20 on
-consecutive ports. A key-counting ranking publishes all 25; the two-per-address
-cap holds the two to four seats. A seat that only a host already holding two
-could fill stays empty, since the zone budget sets the cap as a ceiling rather
-than a count to reach. On the 2026-11-05 crawl the Classic tree held 114 nodes.
+One machine is one point of failure however many node keys it runs, so no
+address publishes more than two nodes, whatever seats are left over. A second
+ceiling holds each `/24`, or `/48` for IPv6, to two nodes as well, so a tree
+spreads across networks as well as machines. The two compose: a `/24` with two
+addresses each running two nodes offers four and publishes two.
 
-**A second ceiling holds each `/24`**, or `/48` for IPv6, to two nodes as well,
-so that acquiring many addresses in one subnet buys no more than acquiring one.
-The per-address cap holds one machine; this holds one operator spreading over
-addresses in a subnet it controls. The two compose: a `/24` with two addresses
-each running two nodes offers four and publishes two. On the 2026-11-05 crawl it
-changed nothing — 101 of the 103 `/24`s held at most two nodes already, and the
-two that held more were the single-address concentrators the per-address cap had
-itself held to two — so the limit constrains any one subnet's share at no present
-cost.
-
-**The ranking does not otherwise weigh network diversity, and that is
-deliberate.** Both limits are ceilings, not a ranking tier. Ranking each
-subnet's best node ahead of every second node reads as diversity, but every
-fresh identity is the best in its own `/24`, so one node per subnet
-would take a tree-worth of first-tier seats on its first night. The ceilings
-resist concentration without that reordering: a new address climbs only on
-score, which takes the time a score takes, so it cannot pass an established node
-by sitting in an empty subnet.
+A seat that only an address or subnet already at its limit could fill stays
+empty, since the zone budget sets the cap as a ceiling rather than a count to
+reach. Both limits are ceilings, not a ranking of their own: the nodes an
+address or subnet keeps are its best-ranked ones, and nothing else orders the
+tree.
 
 **The limits do not fall on operators who only share a provider.** The address
-is the one the crawl reached the node at, so a node that answered receives
-packets there. On the same crawl, the 47 nodes at the three hosting providers
-carrying the most of them sat on 45 addresses, and only two `/24`s held more than
-two nodes at all, each a single concentrated address rather than several
-operators sharing a subnet.
+is the one the crawl reached the node at, and a `/24` is far narrower than a
+hosting provider, so operators who only share a provider rarely share a limit.
 
 ### A key rotation keeps a node's standing
 
@@ -170,18 +139,8 @@ to drop it leaves nothing to carry.
 ### Score before the last answer
 
 Ranked instead by when each node last answered, to the second, a night's
-responders fall in the order the crawl happened to reach them, and newly found
-nodes displace long-lived ones. Replayed over the 57 crawls committed from
-2026-09-10 to 2026-11-05, on the nodes where the two rankings disagree:
-
-| | ranked by score | ranked by last answer |
-|---|---|---|
-| answered the next night's crawl | 97% | 89% |
-| answered all of the next seven nights' crawls | 91% | 58% |
-| median time since its first answer | 19 days | 2 days |
-
-The two disagree on up to 13 of a tree's 120 nodes a night, so across a whole
-tree the gain is small. Ranking by score also changes fewer of a tree's nodes
-from night to night: 1.7 a night on average, against 4.3. Mordor's tree has never
-reached its cap, so there the ranking decides nothing beyond the limit of two per
-address.
+responders would fall in the order the crawl happened to reach them, and newly
+found nodes would displace long-lived ones. Ranked by score, a tree keeps the
+nodes that have kept answering and changes fewer of them from night to night.
+Where a tree holds fewer nodes than its seats, the ranking decides only which
+nodes an address or subnet over its limit keeps.

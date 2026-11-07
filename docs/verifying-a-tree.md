@@ -38,7 +38,7 @@ resolves through the system resolver and has no option to use another one. It
 fetches one record at a time, at most three a second, and gives each lookup five
 seconds unless `--timeout` sets a longer limit, with no retry, so a single slow
 answer fails the whole sync. A stub resolver such as `systemd-resolved` at
-`127.0.0.53` has been measured failing it outright while the same tree resolves
+`127.0.0.53` can fail it outright while the same tree resolves
 fine through a public resolver. A sync that returns nothing while `dig` returns
 records normally is the sign of it.
 

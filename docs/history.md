@@ -83,7 +83,7 @@ Those checks are additions for this deployment, not corrections to
 prior art. It also publishes at most two nodes from any one address and two from
 any one `/24`, and ranks the rest by score rather than by the second each
 answered, which keeps the nodes that stay up, as
-[Which nodes the cap keeps](node-selection.md#which-nodes-the-cap-keeps) shows.
+[Which nodes the cap keeps](node-selection.md#which-nodes-the-cap-keeps) describes.
 
 The two also build their working set differently. That repository rebuilds
 `all.json` from its own capped published trees before each crawl, so its size

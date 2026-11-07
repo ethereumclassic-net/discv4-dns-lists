@@ -9,7 +9,7 @@ disagreeing, `AGENTS.md` wins.
 ## Before acting
 
 - **Read `docs/pipeline.md` and `docs/node-selection.md` before changing the
-  pipeline.** They carry the measurements behind every cap, floor and design
+  pipeline.** They carry the reasoning behind every cap, floor and design
   choice. A number changed without reading them is a number changed without
   knowing what it protects.
 - **This repository is bootstrap infrastructure for a live network.** Treat
