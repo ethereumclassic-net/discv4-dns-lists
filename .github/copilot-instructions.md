@@ -121,21 +121,21 @@ hand-edit a `nodes.json`.
 - **Floors** (`MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`) are guards against a
   broken run, **not targets**. Mordor's 5 is deliberate — its ceiling is the
   network, not the crawl.
-- **Shrink tolerance** (50% of the last *committed* tree) is the only guard
-  against a crawl that lost its seed trees. It reads its baseline with
-  `git show HEAD:<dir>/nodes.json`, so the commit step is load-bearing: with
+- **Shrink tolerance** (50% of the last *committed* tree) refuses a tree that
+  would shrink below half of the last one: a crawl that lost its seed trees, or
+  a night on which most of a tree's nodes did not answer. It reads its baseline
+  with `git show HEAD:<dir>/nodes.json`, so the commit step is load-bearing: with
   nothing committed there is no baseline and the check cannot fire.
-- **Reach** (`REACH_MIN_PCT=50`) refuses the whole run, before anything is
-  published, if the crawl reached fewer than half of the nodes that answered an
+- **Reach** (`REACH_MIN_PCT=50`) refuses the whole run, before any tree is
+  built, if the crawl reached fewer than half of the nodes that answered an
   earlier run. It guards against the runner's own connectivity failing, which
-  marks every node as failing without shrinking any tree. The crawl set is
-  mostly other networks, so its answer rate measures the runner, not Ethereum
-  Classic.
-- **Retention** (`RETENTION_MIN_PCT=50`) warns on the status issue, and still
-  publishes, if fewer than half of a tree's last published endpoints answered
+  marks every node as failing at once. The crawl set is mostly other networks,
+  so its answer rate measures the runner, not Ethereum Classic.
+- **Retention** (`RETENTION_MIN_PCT=50`) warns on the status issue, without
+  refusing, if fewer than half of a tree's last published endpoints answered
   under any key. Operators rotating keys together can silence most of a tree at
-  once, and a refusal then would repeat every night against the same committed
-  tree.
+  once, and a refusal on that count would repeat every night against the same
+  committed tree.
 - **Fork hashes** (`FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`)
   restrict a tree to nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis

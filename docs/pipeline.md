@@ -24,15 +24,15 @@ things:
    keeps only the nodes on its **current** fork ID, as
    [How nodes are chosen](node-selection.md#only-nodes-on-the-current-fork-id-are-published)
    describes.
-4. **Cap** to the DNS zone budget with at most two nodes per address and two per
-   `/24`, **sign**
-   with the project key, **publish**, and **commit** the result here. Every commit message carries the node count of
-   each tree, so a degraded publish shows in `git log` without diffing anything.
+4. **Cap** the nodes that answered the crawl to the DNS zone budget, with at most
+   two nodes per address and two per `/24`, **sign** with the project key,
+   **publish**, and **commit** the result here. Every commit message carries the
+   node count of each tree, so a degraded publish shows in `git log` without
+   diffing anything.
 
 **Seeding is not trusting the other publishers.** Step 2 re-pings everything step
-1 brought in, and an entry that has never answered is never published, so a stale
-or hostile entry reaches no tree, and it is removed from the set as well. What seeding buys is reach;
-verification still happens locally.
+1 brought in, and only a node that answered that crawl is published. What seeding
+buys is reach; verification still happens locally.
 
 **A seeded node that never answers needs its own removal.** `devp2p` drops a node
 whose score falls to zero, but skips rather than drops one that is at zero
@@ -76,29 +76,27 @@ The relative check compares against the last **committed** tree, which is why th
 commit step matters as much as the publish step: without it there is no baseline,
 and the check cannot fire at all.
 
-**A reach check** catches the failure the other two cannot see. When the runner
-itself loses the network, the crawl marks every node it cannot reach as failing,
-but the cap still fills each tree from nodes that answered on earlier runs, so no
-tree shrinks. So before anything is published, the run counts how many of the
-nodes that answered an earlier crawl answered this one, across the whole crawl
-set rather than one tree, and refuses when fewer than half did. The crawl set
-holds about 30,000 nodes of every network the DHT carries, so its answer rate
-measures this runner's reach, not Ethereum Classic's: over the 56 runs from
-2026-09-11 to 2026-11-05 it never fell below 96.7%. A refused run commits
-nothing, so the scores it cut on nodes it could not reach are discarded with it.
+**A reach check** names the failure the other two would only see as a small
+tree. When the runner itself loses the network, the crawl marks every node it
+cannot reach as failing. So before any tree is built, the run counts how many of
+the nodes that answered an earlier crawl answered this one, across the whole
+crawl set rather than one tree, and refuses when fewer than half did. The crawl
+set holds nodes of every network the DHT carries, so its answer rate measures
+this runner's reach, not Ethereum Classic's. A refused run commits nothing, so
+the scores it cut on nodes it could not reach are discarded with it.
 
 All three refuse rather than publish. A client reading a tree cannot tell a
 broken crawl from a quiet network.
 
-**A tree losing most of its nodes is reported, not refused.** Most of a tree can
-stop answering at once when operators rotate their node keys together, as the
-move to the `v1.13` line asks, and the crawl sees a rotated node as a new node.
-So the run also counts how many of each tree's last published endpoints, IP
-address and port, answered under any key, and warns on the status issue when
-fewer than half did. It publishes what answered: refusing would keep the old
-tree, and every later run, comparing against the same committed tree, would
-refuse again. Over the same 56 runs, between 85.8% and 100% of the classic
-tree's endpoints answered the next night.
+**A tree losing most of its endpoints is reported.** Most of a tree can stop
+answering at once when operators rotate their node keys together, as the move to
+the `v1.13` line asks, and the crawl sees a rotated node as a new node. So the
+run also counts how many of each tree's last published endpoints, IP address and
+port, answered under any key, and warns on the status issue when fewer than half
+did. That count never refuses a publish: a rotated node that answers is
+published under its new key, with its score. Only the relative check refuses,
+when a tree would still shrink below half of the last one, and the run publishes
+again once enough of its nodes answer.
 
 ## A refusal is reported, not silent
 

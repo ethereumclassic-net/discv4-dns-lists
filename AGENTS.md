@@ -171,26 +171,25 @@ Change none of these without reading the reasoning in `docs/pipeline.md`,
   normal night's Mordor count, deliberately: Mordor's ceiling is the network, not
   the crawl, and a floor scaled from classic's numbers would refuse every
   legitimate Mordor publish. Each night's counts are in its commit message.
-- **Shrink tolerance** — 50% of the last *committed* tree. This is the only
-  guard against a crawl that lost its seed trees and would otherwise replace a
-  full 120-node tree with a healthy-looking 44-node one. It reads its baseline
-  from `git show HEAD:<dir>/nodes.json`, **so the commit step is
-  load-bearing**: if trees are never committed there is no baseline and the
-  check cannot fire.
-- **Reach** — `REACH_MIN_PCT=50`. Before anything is published, the run refuses
-  if the crawl reached fewer than half of the nodes that answered an earlier run.
-  This is the guard against the runner's own connectivity failing: a crawl that
-  cannot reach the network marks every node as failing but does not shrink any
-  tree, because the cap fills it from earlier runs. The crawl set holds about
-  30,000 nodes of every network, so its answer rate measures the runner, not
-  Ethereum Classic: over the 56 runs from 2026-09-11 to 2026-11-05 it never fell
-  below 96.7%.
-- **Retention** — `RETENTION_MIN_PCT=50`. The run warns on the status issue, and
-  still publishes, if fewer than half of a tree's last published endpoints
+- **Shrink tolerance** — 50% of the last *committed* tree. A tree that would
+  shrink below half of the last one is refused. It is the guard against a crawl
+  that lost its seed trees, and, since only nodes that answered are published,
+  it also refuses a night on which most of a tree's nodes did not answer, until
+  enough of them answer again. It reads its baseline from
+  `git show HEAD:<dir>/nodes.json`, **so the commit step is load-bearing**: if
+  trees are never committed there is no baseline and the check cannot fire.
+- **Reach** — `REACH_MIN_PCT=50`. Before any tree is built, the run refuses if
+  the crawl reached fewer than half of the nodes that answered an earlier run.
+  This is the guard against the runner's own connectivity failing, which marks
+  every node as failing at once: it refuses the whole run and names the cause,
+  where the floors and the shrink check would only see a small tree. The crawl
+  set holds nodes of every network, so its answer rate measures the runner, not
+  Ethereum Classic.
+- **Retention** — `RETENTION_MIN_PCT=50`. The run warns on the status issue,
+  without refusing, if fewer than half of a tree's last published endpoints
   answered under any key. Operators rotating keys together can silence most of a
-  tree at once, as the move to the `v1.13` line asks, and a refusal then would
-  repeat every night against the same committed tree. Over the same runs, 85.8%
-  to 100% of the classic tree's endpoints answered the next night.
+  tree at once, as the move to the `v1.13` line asks, and a refusal on that count
+  would repeat every night against the same committed tree.
 - **Fork hashes** — `FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`. A
   published tree keeps only nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis

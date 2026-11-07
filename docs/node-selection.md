@@ -7,7 +7,7 @@ network's current fork, how large a tree can be, and which nodes the cap keeps.
 
 A node is published when it:
 
-- answers the crawl's discovery pings from a reachable address,
+- answered that night's crawl from a reachable address,
 - carries an `eth` entry in its node record with the network's current fork ID,
   and
 - is among the first 120 Classic or 15 Mordor such nodes in the ranking that
@@ -103,16 +103,17 @@ classic nodes and 65.
 
 ## Which nodes the cap keeps
 
-A tree holds at most 120 Classic or 15 Mordor nodes, ranked:
+A tree holds at most 120 Classic or 15 Mordor nodes, chosen from the nodes that
+answered the night's crawl. A node that did not answer is not published, even
+with seats left over, whether it answered an earlier crawl or never has.
 
-1. A node that answered the night's crawl ranks ahead of one that did not.
-2. Then the higher **score** ranks first: the crawler adds a point each time a
-   node answers and halves the score each time it does not, so a high score
-   marks a node that has kept answering. A tie goes to the more recent answer.
+Among the nodes that answered, the higher **score** ranks first: the crawler adds
+a point each time a node answers and halves the score each time it does not, so
+a high score marks a node that has kept answering. A tie goes to the more recent
+answer.
 
 No address publishes more than two nodes, and no `/24` (or `/48` for IPv6) more
-than two, even with seats left over, and a record that has never answered the
-crawl is never published.
+than two, even with seats left over.
 
 ### At most two seats per address, and per subnet
 

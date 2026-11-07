@@ -45,14 +45,12 @@ MIN_NODES_MORDOR="${MIN_NODES_MORDOR:-5}"
 SHRINK_TOLERANCE_PCT="${SHRINK_TOLERANCE_PCT:-50}"
 
 # Refuse the whole run when the crawl reached under this share of the nodes that
-# answered an earlier run. A crawl that cannot reach the network -- this runner's
-# network, its resolver, the host -- marks every node as failing without
-# shrinking any tree: the cap fills it from earlier runs, so neither the floor
-# nor the shrink check sees anything wrong. The crawl set holds about 30,000
-# nodes of every network the DHT carries, so its answer rate measures this
-# runner's reach rather than any one network's health. Over the 56 runs from
-# 2026-09-11 to 2026-11-05 it never fell below 96.7%; a runner that cannot reach
-# the network gets next to no answers.
+# answered an earlier run. When this runner cannot reach the network -- its
+# connection, its resolver, the host -- every node fails its check at once, and
+# this catches it before any tree is built and names the cause, where the floor
+# and the shrink check would only see a small tree. The crawl set holds nodes of
+# every network the DHT carries, so its answer rate reflects this runner's reach
+# rather than any one network's health.
 REACH_MIN_PCT="${REACH_MIN_PCT:-50}"
 
 # Warn, without refusing, when fewer than this share of the endpoints -- IP
@@ -222,12 +220,11 @@ log "seeded from $(tr ',' '\n' <<<"$BOOT_CLASSIC" | wc -l) classic and $(tr ',' 
 BOOTNODE_STATUS="${BOOTNODE_STATUS:-}"
 
 # Seed the node set from published DNS trees, then let the crawl revalidate
-# every one of them. This is not trusting the publishers: the crawl re-pings its
-# input set, and a node that has never answered it is never published -- see
-# rank_and_cap -- so a stale or hostile entry reaches no tree. Nor does it stay:
-# a node that stops answering loses half its score per missed check and is
-# dropped at zero, and a seeded node that has never answered is pruned in
-# seed_from_trees once no seed tree carries it.
+# every one of them. A seed adds reach, not trust: the crawl re-pings its input
+# set, and only a node that answered this run is published -- see rank_and_cap.
+# Nor does an entry stay: a node that stops answering loses half its score per
+# missed check and is dropped at zero, and a seeded node that has never answered
+# is pruned in seed_from_trees once no seed tree carries it.
 #
 # It matters most on Mordor. Measured before the first publish: a 15-minute crawl
 # seeded from the one Mordor bootnode core-geth v1.12.x ships matched 3 nodes,
@@ -496,51 +493,31 @@ PYEOF
 }
 
 # Rank a node set and cap it, writing the result to $2 -- see CAP_CLASSIC,
-# MAX_PER_ADDRESS and MAX_PER_SUBNET. Best first:
+# MAX_PER_ADDRESS and MAX_PER_SUBNET.
 #
-#   1. a node that answered this run, before one that did not;
-#   2. the higher score -- the crawler adds a point each time a node answers and
-#      halves it each time one does not -- then the later lastResponse;
+# Only a node that answered this run is published, whatever seats are left. A
+# record that did not answer, whether it answered an earlier run or never has,
+# stays in the crawl set and out of the tree. Among the nodes that answered, the
+# higher score ranks first -- the crawler adds a point each time a node answers
+# and halves it each time one does not -- then the later lastResponse. Ties go to
+# the endpoint, not the node key, so a node's place depends on where it answers
+# and for how long, never on which key it answers under.
 #
-# and no address past MAX_PER_ADDRESS nodes, nor any /24 (or /48) past
-# MAX_PER_SUBNET, whatever seats are left. A record that has never answered the
-# crawl -- a seed tree's entry the crawl could not reach -- is never published
-# either: a seed is reach, not a recommendation, and such a record filled a spare
-# Classic seat on 2026-10-26 and 2026-10-27.
-#
-# One machine is one point of failure however many node keys it runs, so no
-# address publishes more than MAX_PER_ADDRESS nodes. Measured on the 2026-11-05
-# crawl, 134 answering classic nodes sat on 102 addresses, two of which ran 25
-# keys between them, one with 20 on consecutive ports: a key-counting ranking
-# would publish all 25, and the cap holds the two to MAX_PER_ADDRESS seats each.
-# The 47 nodes at the three hosting providers carrying the most of them sat on
-# 45 addresses, so the limit does not fall on operators who only share a provider.
-#
-# Both limits are ceilings, and the ranking is otherwise network-blind, by
-# design. The distinction is the whole point. A ceiling limits how many a subnet
-# may hold; a ranking *tier* would reorder, putting each subnet's best node ahead
-# of every second node -- and that reads as diversity but is the opposite, since
-# every fresh identity is the best in its own empty /24, so one node per subnet
-# would take a tree-worth of first-tier seats on its first night. The
-# ceilings resist concentration without that reordering: a new address climbs
-# only on score, the time a score takes, so it cannot pass an established node by
-# sitting in an empty subnet. Do not add a per-network ranking tier. The
-# per-subnet ceiling exists because the per-address one stops one machine but not
-# one operator spreading over many addresses in a /24 they control; it does not
-# fall on operators who only share a provider, since 101 of the 103 /24s in the
-# 2026-11-05 pool held at most MAX_PER_SUBNET nodes already.
-# Seats that only a host or /24 already at its ceiling could fill stay empty:
-# the zone budget sets the cap as a ceiling, not a count to reach.
+# No address publishes more than MAX_PER_ADDRESS nodes and no /24 (or /48) more
+# than MAX_PER_SUBNET: one machine is one point of failure however many node keys
+# it runs, and the subnet limit spreads a tree across networks as well as
+# machines. Both are ceilings on the ranking above, not a ranking of their own,
+# by design: the nodes an address or subnet keeps are its best-ranked ones, and
+# nothing else orders the tree. Seats only an address or subnet already at its
+# limit could fill stay empty, since the zone budget sets the cap as a ceiling,
+# not a count to reach.
 #
 # The address is the record's own `ip` entry, else `ip6`. The crawl sent its
-# request there, so a node that answered receives packets at it. Ties go to the
-# endpoint, not the node key, so a node's place depends on where it answers and
-# for how long, never on which key it answers under.
+# request there, so a node that answered receives packets at it.
 #
-# Step 2 ranks by score before lastResponse because lastResponse is recorded to
-# the second: ranked by it first, a run's responders fall in the order the
-# crawl reached them, and the cap kept newly found nodes over long-lived ones --
-# see docs/node-selection.md.
+# Score ranks before lastResponse because lastResponse is recorded to the second:
+# ranked by it first, a run's nodes fall in the order the crawl happened to reach
+# them -- see docs/node-selection.md.
 rank_and_cap() {
   local src="$1" out="$2" cap="$3" label="$4"
   python3 - "$src" "$out" "$cap" "$MAX_PER_ADDRESS" "$RUN_START" "$label" "$MAX_PER_SUBNET" <<'PYEOF'
@@ -594,43 +571,43 @@ def address(nid, record):
     return "id:" + nid, udp, "id:" + nid      # no address in the record: it shares none
 
 nodes = json.load(open(src))
-rows = []    # (answered this run, score, lastResponse, address, udp port, id, subnet): best sorts last
-never = 0
+rows = []    # (score, lastResponse, address, udp port, id, subnet): best sorts last
+silent = 0
 for nid, v in nodes.items():
     last = str(v.get("lastResponse") or "")
-    if not int(v.get("score") or 0) and last[:4] in ("", "0001"):
-        never += 1
+    if last < start:
+        silent += 1
         continue
     ip, udp, net = address(nid, v["record"])
-    rows.append((last >= start, int(v.get("score") or 0), last, ip, udp, nid, net))
+    rows.append((int(v.get("score") or 0), last, ip, udp, nid, net))
 
 def places(col):
-    # Each node's place among the nodes sharing its address (col 3) or its subnet
-    # (col 6), best first, so a ceiling keeps the best `per` of each group.
+    # Each node's place among the nodes sharing its address (col 2) or its subnet
+    # (col 5), best first, so a ceiling keeps the best `per` of each group.
     groups = collections.defaultdict(list)
     for r in rows:
         groups[r[col]].append(r)
-    return {r[5]: k for g in groups.values() for k, r in enumerate(sorted(g, reverse=True))}
+    return {r[4]: k for g in groups.values() for k, r in enumerate(sorted(g, reverse=True))}
 
-by_address = places(3)
-by_subnet = places(6)
-eligible = [r for r in rows if by_address[r[5]] < per and by_subnet[r[5]] < per_net]
-eligible.sort(key=lambda r: (r[0],) + r[1:6], reverse=True)
+by_address = places(2)
+by_subnet = places(5)
+eligible = [r for r in rows if by_address[r[4]] < per and by_subnet[r[4]] < per_net]
+eligible.sort(reverse=True)
 kept = eligible[:cap]
-past_addr = sum(1 for r in rows if by_address[r[5]] >= per)
-past_net = sum(1 for r in rows if by_address[r[5]] < per and by_subnet[r[5]] >= per_net)
+past_addr = sum(1 for r in rows if by_address[r[4]] >= per)
+past_net = sum(1 for r in rows if by_address[r[4]] < per and by_subnet[r[4]] >= per_net)
 with open(out, "w") as f:
-    json.dump({r[5]: nodes[r[5]] for r in kept}, f, indent=2)
+    json.dump({r[4]: nodes[r[4]] for r in kept}, f, indent=2)
     f.write("\n")
-print("  %s: %d nodes on %d addresses in %d networks, %d answered this run; %d past %d per address, "
-      "%d further past %d per subnet, and %d that never answered left out; %d kept, cap %d"
-      % (label, len(rows), len({r[3] for r in rows}), len({r[6] for r in rows}), sum(1 for r in rows if r[0]),
-         past_addr, per, past_net, per_net, never, len(kept), cap))
+print("  %s: %d of %d nodes answered this run, on %d addresses in %d networks; %d past %d per address "
+      "and %d further past %d per subnet left out; %d kept, cap %d"
+      % (label, len(rows), len(rows) + silent, len({r[2] for r in rows}), len({r[5] for r in rows}),
+         past_addr, per, past_net, per_net, len(kept), cap))
 # A concentration gauge for the status issue, in aggregate so it names no operator: the most any one
 # address or /24 offered, and how many the caps held back. A line only when a cap actually bound, so a
 # run with none is silent, and a figure that climbs over nights is worth attention.
-busiest_addr = max(collections.Counter(r[3] for r in rows).values(), default=0)
-busiest_net = max(collections.Counter(r[6] for r in rows).values(), default=0)
+busiest_addr = max(collections.Counter(r[2] for r in rows).values(), default=0)
+busiest_net = max(collections.Counter(r[5] for r in rows).values(), default=0)
 if busiest_addr > per or busiest_net > per_net:
     print("CONCENTRATION: %s: the busiest address offered %d node%s and the busiest /24 or /48 offered %d; "
           "the caps publish at most %d and %d from each, so %d of %d were held back."
