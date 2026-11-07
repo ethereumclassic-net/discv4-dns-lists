@@ -44,14 +44,26 @@ MIN_NODES_MORDOR="${MIN_NODES_MORDOR:-5}"
 # Refuse a published tree that shrinks below this fraction of the last one.
 SHRINK_TOLERANCE_PCT="${SHRINK_TOLERANCE_PCT:-50}"
 
-# Refuse the whole run when fewer than this share of the nodes published last
-# time answered this run's crawl. A network does not lose half its reachable
-# nodes overnight; this runner's connection -- its network, its resolver, the
-# host -- can, and a crawl that cannot reach the network marks every node as
-# failing without shrinking the tree: the cap fills it from earlier runs, so
-# neither the floor nor the shrink check sees anything wrong. Measured over the
-# first sixteen nightlies, 111 to 119 of 120 classic nodes answered the next
-# night's crawl, and mordor's worst night was 8 of 13.
+# Refuse the whole run when the crawl reached under this share of the nodes that
+# answered an earlier run. A crawl that cannot reach the network -- this runner's
+# network, its resolver, the host -- marks every node as failing without
+# shrinking any tree: the cap fills it from earlier runs, so neither the floor
+# nor the shrink check sees anything wrong. The crawl set holds about 30,000
+# nodes of every network the DHT carries, so its answer rate measures this
+# runner's reach rather than any one network's health. Over the 56 runs from
+# 2026-09-11 to 2026-11-05 it never fell below 96.7%; a runner that cannot reach
+# the network gets next to no answers.
+REACH_MIN_PCT="${REACH_MIN_PCT:-50}"
+
+# Warn, without refusing, when fewer than this share of the endpoints -- IP
+# address and UDP port -- a tree published last time answered this run. Most of
+# a tree can stop answering at once when operators rotate their node keys
+# together, as the move to the v1.13 line asks. Refusing then would keep the old
+# tree in DNS, and every later run, comparing against that same committed tree,
+# would refuse again until someone intervened. Counted by endpoint, so a node
+# that answered at the same endpoint under a new key still counts. Over the same
+# runs, between 85.8% and 100% of the classic tree's endpoints answered the next
+# night.
 RETENTION_MIN_PCT="${RETENTION_MIN_PCT:-50}"
 
 # Per-network published-node cap, derived from the DNS zone budget rather than
@@ -78,6 +90,22 @@ CAP_CLASSIC="${CAP_CLASSIC:-120}"
 CAP_MORDOR="${CAP_MORDOR:-15}"
 cap_for() { case "$1" in classic) echo "$CAP_CLASSIC";; mordor) echo "$CAP_MORDOR";; *) echo 100;; esac; }
 
+# At most this many nodes per address in a published tree -- see rank_and_cap.
+MAX_PER_ADDRESS="${MAX_PER_ADDRESS:-2}"
+
+# And at most this many per /24 (IPv4) or /48 (IPv6) -- see rank_and_cap. The
+# per-address cap holds one machine to MAX_PER_ADDRESS; this holds one subnet,
+# so acquiring many addresses in one /24 buys no more than acquiring one. On the
+# 2026-11-05 pool it drops nothing the per-address cap did not: 101 of 103 /24s
+# held one or two nodes, and the only two holding more were the two single-IP
+# concentrators the per-address cap already capped. It is set equal to
+# MAX_PER_ADDRESS and is a ceiling, not a target. Loosen it only if a provider
+# is ever seen packing more than this many independent operators into one /24 --
+# a /24 is 256 addresses, narrow enough that this is rare, which is why the cap
+# is per-/24 and never per-ASN, a span that would fall on operators who only
+# share a provider.
+MAX_PER_SUBNET="${MAX_PER_SUBNET:-2}"
+
 # The fork hash (EIP-2124 FORK_HASH) a synced node on each network advertises
 # today. A published tree keeps only nodes whose record carries it.
 #
@@ -92,15 +120,31 @@ cap_for() { case "$1" in classic) echo "$CAP_CLASSIC";; mordor) echo "$CAP_MORDO
 # stage, which Ethereum mainnet shares, so the record cannot even say which
 # chain such a node is on. The crawl held 139 classic nodes on this hash.
 #
-# Pinned, because nothing the pipeline runs can report a network's current fork
-# ID: devp2p has no command for it, and the crawl never sees a chain head. A pin
-# goes stale when the network passes its next fork, and a stale one would
-# publish only the nodes left behind, so keep_current_fork refuses as soon as
-# the crawl finds a node past it. Every stage's hash is listed in core-geth's
-# core/forkid/forkid_test.go.
+# Pinned, and deliberately not read from core-geth automatically. Nothing the
+# pipeline runs can report a network's current fork ID -- devp2p has no command
+# for it, and the crawl never sees a chain head -- and more to the point, the
+# current fork must NOT follow core-geth's main. A fork is scheduled in main's
+# chain config before its release is cut and before it activates on chain, while
+# the nodes serving today's syncing peers are still on the current fork. So the
+# filter stays on the current hash, keeping those responsive nodes in the tree,
+# until a human bumps the pin when the release is cut. keep_current_fork keeps
+# only nodes on the pinned hash; it no longer refuses on a node past it, which
+# one spoofed record could trigger. check_fork_schedule reads core-geth's own
+# config nightly and only WARNS when the schedule has moved beyond the pin.
+# Take the value from core-geth's core/forkid/forkid_test.go at release time.
 FORK_HASH_CLASSIC="${FORK_HASH_CLASSIC:-be46d57c}"   # since block 19,250,000 (Spiral)
 FORK_HASH_MORDOR="${FORK_HASH_MORDOR:-3a6b00d7}"     # since block 9,957,000
 fork_hash_for() { case "$1" in classic) echo "$FORK_HASH_CLASSIC";; mordor) echo "$FORK_HASH_MORDOR";; *) return 1;; esac; }
+
+# The fork-activation blocks ethereumclassic/core-geth's params/config_<net>.go
+# carried when each pin above was last set -- the trusted basis check_fork_schedule
+# compares against. core-geth is the reference client, so its chain config is the
+# source of truth for the schedule; the crawl's node advertisements are not.
+# Bump these together with the pin above, at release, from the same config files.
+# Read by check_fork_schedule as a set; order and spacing do not matter.
+FORK_SCHEDULE_CLASSIC="${FORK_SCHEDULE_CLASSIC:-1150000 2500000 3000000 5000000 5900000 8772000 9573000 10500839 11380000 11700000 13189133 14525000 19250000}"
+FORK_SCHEDULE_MORDOR="${FORK_SCHEDULE_MORDOR:-0 301243 999983 2380000 2520000 3985893 5520000 9957000 10400000}"
+fork_schedule_for() { case "$1" in classic) echo "$FORK_SCHEDULE_CLASSIC";; mordor) echo "$FORK_SCHEDULE_MORDOR";; *) return 1;; esac; }
 
 # domain:publisher pairs.
 #
@@ -179,10 +223,10 @@ BOOTNODE_STATUS="${BOOTNODE_STATUS:-}"
 
 # Seed the node set from published DNS trees, then let the crawl revalidate
 # every one of them. This is not trusting the publishers: the crawl re-pings its
-# input set, and a node that does not answer ranks behind every node that did,
-# so a stale or hostile entry is not republished while live ones exist. Nor does
-# it stay: a node that stops answering loses half its score per missed check and
-# is dropped at zero, and a seeded node that has never answered is pruned in
+# input set, and a node that has never answered it is never published -- see
+# rank_and_cap -- so a stale or hostile entry reaches no tree. Nor does it stay:
+# a node that stops answering loses half its score per missed check and is
+# dropped at zero, and a seeded node that has never answered is pruned in
 # seed_from_trees once no seed tree carries it.
 #
 # It matters most on Mordor. Measured before the first publish: a 15-minute crawl
@@ -320,19 +364,22 @@ publish_desec() {
 }
 
 # Reduce a filtered node set, in place, to the nodes on the network's current
-# fork hash -- see FORK_HASH_CLASSIC -- and refuse if the pin has gone stale.
+# fork hash -- see FORK_HASH_CLASSIC. The crawl's `-eth-network` filter admits
+# every stage of the schedule, the genesis stage included; this narrows it to
+# the one hash a synced current node advertises.
 #
-# A fork hash is a CRC32 over the genesis hash and every fork block passed, so a
-# node past the next fork F advertises crc32(F, pinned hash). F is read from the
-# nodes that announce it as their `next`: in this set, and in the last committed
-# tree, which still carries the announcement after the upgraded nodes have moved
-# past it. The input has already been through `-eth-network`, so a successor
-# counted here is on the schedule core-geth itself ships.
+# It refuses only when NO node carries the pinned hash -- the pin is wrong or the
+# crawl is broken. A node on a later hash is simply left out, never a refusal:
+# whether the network has moved past the pin is core-geth's config to state (read
+# by check_fork_schedule), not a crawled record's to trigger. One spoofed `eth`
+# entry must not be able to freeze every tree, and the nodes still on the current
+# fork are the ones serving today's syncing peers, so they stay published until a
+# human bumps the pin when core-geth cuts the release.
 keep_current_fork() {
-  local file="$1" net="$2" fork="$3" dir="$4"
-  python3 - "$file" "$net" "$fork" "$dir" <(git show "HEAD:$dir/nodes.json" 2>/dev/null) <<'PYEOF'
-import base64, collections, json, sys, zlib
-path, net, want, label, committed = sys.argv[1:6]
+  local file="$1" net="$2" fork="$3" label="$4"
+  python3 - "$file" "$net" "$fork" "$label" <<'PYEOF'
+import base64, collections, json, sys
+path, net, want, label = sys.argv[1:5]
 want = want.lower()
 var = "FORK_HASH_" + net.upper()
 if len(want) != 8 or any(c not in "0123456789abcdef" for c in want):
@@ -379,21 +426,6 @@ def fork_id(nid, record):
 
 nodes = json.load(open(path))
 ids = {nid: fork_id(nid, v["record"]) for nid, v in nodes.items()}
-try:
-    prev = json.load(open(committed))
-except ValueError:
-    prev = {}   # no committed tree yet
-prev_ids = [fork_id(nid, v["record"]) for nid, v in prev.items()]
-
-announced = {nxt for h, nxt in list(ids.values()) + prev_ids if h == want and nxt}
-successor = {"%08x" % zlib.crc32(f.to_bytes(8, "big"), int(want, 16)): f for f in announced}
-past = collections.Counter(h for h, _ in ids.values() if h in successor)
-if past:
-    h, n = past.most_common(1)[0]
-    sys.exit("  ERROR: %s: %d nodes advertise fork hash %s, the successor of %s=%s at block %d.\n"
-             "  The network has passed that fork, and the pinned stage now holds only the nodes\n"
-             "  left behind. Update %s to %s once that stage is confirmed canonical."
-             % (label, n, h, var, want, successor[h], var, h))
 
 kept = {nid: v for nid, v in nodes.items() if ids[nid][0] == want}
 left = collections.Counter(ids[nid] for nid in nodes if nid not in kept)
@@ -406,25 +438,398 @@ json.dump(kept, open(path, "w"), indent=2)
 PYEOF
 }
 
-# Refuse if fewer than RETENTION_MIN_PCT of the nodes in the last committed tree
-# answered this run -- see RETENTION_MIN_PCT. A node missing from the set counts
-# as not answering. The first publish has no committed tree and is not checked.
+# Warn if ethereumclassic/core-geth's own fork schedule has moved beyond the pin
+# -- see FORK_SCHEDULE_CLASSIC. core-geth is the reference client, so its chain
+# config is the trusted source for the schedule; this reads it from the same
+# .core-geth checkout the build uses (CORE_GETH_SRC), never from a crawled node.
+#
+# It never refuses and never switches the filter. A fork lands in core-geth's
+# main config before its release is cut and before it activates on chain, and the
+# current-fork nodes keep serving syncing peers until then, so this only raises a
+# WARNING for a human to adopt into FORK_HASH_<NET> and FORK_SCHEDULE_<NET> at
+# release. Skipped, not failed, when CORE_GETH_SRC is unset (a local dry run).
+check_fork_schedule() {
+  local net="$1"
+  local cfg="${CORE_GETH_SRC:-}/params/config_${net}.go" basis
+  basis=$(fork_schedule_for "$net") || { log "WARNING: $net: no recorded fork schedule basis"; return 0; }
+  if [ -z "${CORE_GETH_SRC:-}" ] || [ ! -f "$cfg" ]; then
+    log "  $net: core-geth config not available (set CORE_GETH_SRC); fork schedule not checked"
+    return 0
+  fi
+  python3 - "$cfg" "$net" "$basis" <<'PYEOF'
+import re, sys
+cfg, net, basis = sys.argv[1:4]
+var = {"classic": "ClassicChainConfig", "mordor": "MordorChainConfig"}[net]
+opener = re.compile(r"\b%s\s*=\s*&coregeth\.CoreGethChainConfig\{" % re.escape(var))
+blk = re.compile(r"\b\w*Block:\s*big\.NewInt\(([0-9_]+)\)")
+inside, found = False, set()
+for ln in open(cfg):
+    if not inside:
+        if opener.search(ln):
+            inside = True
+        continue
+    if ln.rstrip("\n") == "\t}":        # the struct's own closing brace
+        break
+    if re.match(r"\s*//", ln):           # a commented-out field (e.g. the declined DAO fork)
+        continue
+    m = blk.search(ln)
+    if m:
+        found.add(int(m.group(1).replace("_", "")))
+if not found:
+    print("  WARNING: %s: no fork blocks found in core-geth's %s -- schedule not checked" % (net, var))
+    sys.exit(0)
+have = {int(x) for x in basis.split()}
+added = sorted(found - have)
+removed = sorted(have - found)
+if not added and not removed:
+    print("  %s: core-geth fork schedule matches the pin's basis (%d blocks)" % (net, len(found)))
+    sys.exit(0)
+msg = []
+if added:
+    msg.append("adds block(s) %s" % ", ".join(str(x) for x in added))
+if removed:
+    msg.append("drops block(s) %s" % ", ".join(str(x) for x in removed))
+print("  WARNING: %s: core-geth's fork schedule %s vs the pinned basis. A fork may be scheduled; "
+      "the trees stay on the current pin. Update FORK_HASH_%s and FORK_SCHEDULE_%s from core-geth "
+      "when the release is cut." % (net, " and ".join(msg), net.upper(), net.upper()))
+PYEOF
+}
+
+# Rank a node set and cap it, writing the result to $2 -- see CAP_CLASSIC,
+# MAX_PER_ADDRESS and MAX_PER_SUBNET. Best first:
+#
+#   1. a node that answered this run, before one that did not;
+#   2. the higher score -- the crawler adds a point each time a node answers and
+#      halves it each time one does not -- then the later lastResponse;
+#
+# and no address past MAX_PER_ADDRESS nodes, nor any /24 (or /48) past
+# MAX_PER_SUBNET, whatever seats are left. A record that has never answered the
+# crawl -- a seed tree's entry the crawl could not reach -- is never published
+# either: a seed is reach, not a recommendation, and such a record filled a spare
+# Classic seat on 2026-10-26 and 2026-10-27.
+#
+# One machine is one point of failure however many node keys it runs, so no
+# address publishes more than MAX_PER_ADDRESS nodes. Measured on the 2026-11-05
+# crawl, 134 answering classic nodes sat on 102 addresses, two of which ran 25
+# keys between them, one with 20 on consecutive ports: a key-counting ranking
+# would publish all 25, and the cap holds the two to MAX_PER_ADDRESS seats each.
+# The 47 nodes at the three hosting providers carrying the most of them sat on
+# 45 addresses, so the limit does not fall on operators who only share a provider.
+#
+# Both limits are ceilings, and the ranking is otherwise network-blind, by
+# design. The distinction is the whole point. A ceiling limits how many a subnet
+# may hold; a ranking *tier* would reorder, putting each subnet's best node ahead
+# of every second node -- and that reads as diversity but is the opposite, since
+# every fresh identity is the best in its own empty /24, so one node per subnet
+# would take a tree-worth of first-tier seats on its first night. The
+# ceilings resist concentration without that reordering: a new address climbs
+# only on score, the time a score takes, so it cannot pass an established node by
+# sitting in an empty subnet. Do not add a per-network ranking tier. The
+# per-subnet ceiling exists because the per-address one stops one machine but not
+# one operator spreading over many addresses in a /24 they control; it does not
+# fall on operators who only share a provider, since 101 of the 103 /24s in the
+# 2026-11-05 pool held at most MAX_PER_SUBNET nodes already.
+# Seats that only a host or /24 already at its ceiling could fill stay empty:
+# the zone budget sets the cap as a ceiling, not a count to reach.
+#
+# The address is the record's own `ip` entry, else `ip6`. The crawl sent its
+# request there, so a node that answered receives packets at it. Ties go to the
+# endpoint, not the node key, so a node's place depends on where it answers and
+# for how long, never on which key it answers under.
+#
+# Step 2 ranks by score before lastResponse because lastResponse is recorded to
+# the second: ranked by it first, a run's responders fall in the order the
+# crawl reached them, and the cap kept newly found nodes over long-lived ones --
+# see docs/node-selection.md.
+rank_and_cap() {
+  local src="$1" out="$2" cap="$3" label="$4"
+  python3 - "$src" "$out" "$cap" "$MAX_PER_ADDRESS" "$RUN_START" "$label" "$MAX_PER_SUBNET" <<'PYEOF'
+import base64, collections, ipaddress, json, sys
+src, out, cap, per, start, label, per_net = sys.argv[1:8]
+for name, val in (("MAX_PER_ADDRESS", per), ("MAX_PER_SUBNET", per_net)):
+    if not val.isdigit() or int(val) < 1:
+        sys.exit("  ERROR: %s: %s=%s is not a whole number of at least 1" % (label, name, val))
+cap, per, per_net = int(cap), int(per), int(per_net)
+
+def item(b, i):
+    # One RLP item at b[i]: (payload start, payload end).
+    p = b[i]
+    if p < 0x80: return i, i + 1
+    if p < 0xb8: return i + 1, i + 1 + p - 0x80
+    if p < 0xc0:
+        s = i + 1 + p - 0xb7
+        return s, s + int.from_bytes(b[i + 1:s], "big")
+    if p < 0xf8: return i + 1, i + 1 + p - 0xc0
+    s = i + 1 + p - 0xf7
+    return s, s + int.from_bytes(b[i + 1:s], "big")
+
+def items(b, start, end):
+    out = []
+    while start < end:
+        s, e = item(b, start)
+        out.append((s, e))
+        start = e
+    if start != end:
+        raise ValueError("RLP list overruns its length")
+    return out
+
+def address(nid, record):
+    # The ENR is [signature, seq, key, value, ...]. keep_current_fork has already
+    # decoded every record here, so a failure is this decoder's fault and must
+    # stop the run rather than quietly drop the node.
+    try:
+        s = record[4:]
+        raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+        top = items(raw, *item(raw, 0))
+        kv = {raw[k[0]:k[1]]: raw[v[0]:v[1]] for k, v in zip(top[2::2], top[3::2])}
+    except Exception as e:
+        sys.exit("  ERROR: %s: cannot decode the record of node %s: %s" % (label, nid, e))
+    udp = int.from_bytes(kv.get(b"udp", b""), "big")
+    if len(kv.get(b"ip", b"")) == 4:
+        ip = ipaddress.IPv4Address(kv[b"ip"])
+        return str(ip), udp, str(ipaddress.IPv4Network((ip, 24), strict=False))
+    if len(kv.get(b"ip6", b"")) == 16:
+        ip = ipaddress.IPv6Address(kv[b"ip6"])
+        return str(ip), udp, str(ipaddress.IPv6Network((ip, 48), strict=False))
+    return "id:" + nid, udp, "id:" + nid      # no address in the record: it shares none
+
+nodes = json.load(open(src))
+rows = []    # (answered this run, score, lastResponse, address, udp port, id, subnet): best sorts last
+never = 0
+for nid, v in nodes.items():
+    last = str(v.get("lastResponse") or "")
+    if not int(v.get("score") or 0) and last[:4] in ("", "0001"):
+        never += 1
+        continue
+    ip, udp, net = address(nid, v["record"])
+    rows.append((last >= start, int(v.get("score") or 0), last, ip, udp, nid, net))
+
+def places(col):
+    # Each node's place among the nodes sharing its address (col 3) or its subnet
+    # (col 6), best first, so a ceiling keeps the best `per` of each group.
+    groups = collections.defaultdict(list)
+    for r in rows:
+        groups[r[col]].append(r)
+    return {r[5]: k for g in groups.values() for k, r in enumerate(sorted(g, reverse=True))}
+
+by_address = places(3)
+by_subnet = places(6)
+eligible = [r for r in rows if by_address[r[5]] < per and by_subnet[r[5]] < per_net]
+eligible.sort(key=lambda r: (r[0],) + r[1:6], reverse=True)
+kept = eligible[:cap]
+past_addr = sum(1 for r in rows if by_address[r[5]] >= per)
+past_net = sum(1 for r in rows if by_address[r[5]] < per and by_subnet[r[5]] >= per_net)
+with open(out, "w") as f:
+    json.dump({r[5]: nodes[r[5]] for r in kept}, f, indent=2)
+    f.write("\n")
+print("  %s: %d nodes on %d addresses in %d networks, %d answered this run; %d past %d per address, "
+      "%d further past %d per subnet, and %d that never answered left out; %d kept, cap %d"
+      % (label, len(rows), len({r[3] for r in rows}), len({r[6] for r in rows}), sum(1 for r in rows if r[0]),
+         past_addr, per, past_net, per_net, never, len(kept), cap))
+# A concentration gauge for the status issue, in aggregate so it names no operator: the most any one
+# address or /24 offered, and how many the caps held back. A line only when a cap actually bound, so a
+# run with none is silent, and a figure that climbs over nights is worth attention.
+busiest_addr = max(collections.Counter(r[3] for r in rows).values(), default=0)
+busiest_net = max(collections.Counter(r[6] for r in rows).values(), default=0)
+if busiest_addr > per or busiest_net > per_net:
+    print("CONCENTRATION: %s: the busiest address offered %d node%s and the busiest /24 or /48 offered %d; "
+          "the caps publish at most %d and %d from each, so %d of %d were held back."
+          % (label, busiest_addr, "" if busiest_addr == 1 else "s", busiest_net, per, per_net,
+             len(rows) - len(eligible), len(rows)))
+PYEOF
+}
+
+# Refuse if the crawl reached under REACH_MIN_PCT of the nodes that answered an
+# earlier run -- see REACH_MIN_PCT. A node first heard from this run, and a seed
+# record that has never answered, are in neither count.
+check_reach() {
+  python3 - "$RUN_START" "$REACH_MIN_PCT" all.json <<'PYEOF'
+import json, sys
+start, pct, current = sys.argv[1:4]
+known = back = 0
+for v in json.load(open(current)).values():
+    first = str(v.get("firstResponse") or "")
+    if first and not first.startswith("0001") and first < start:
+        known += 1
+        back += str(v.get("lastResponse") or "") >= start
+if not known:
+    print("  crawl reach: no node answered an earlier run, nothing to compare against")
+    sys.exit(0)
+print("  crawl reach: %d of the %d nodes that answered an earlier run answered this one (%.1f%%)"
+      % (back, known, 100.0 * back / known))
+if back * 100 < known * int(pct):
+    sys.exit("  ERROR: the crawl reached under %s%% of the nodes that answered an earlier run. The\n"
+             "  network does not go quiet overnight; this runner's connection can." % pct)
+PYEOF
+}
+
+# Report how many of the endpoints in the last committed tree answered this run,
+# and warn under RETENTION_MIN_PCT -- see RETENTION_MIN_PCT. Never refuses:
+# whether the runner reached the network is check_reach's call. An endpoint
+# counts once any node answered there this run, under its old key or a new one.
+# The first publish has no committed tree and is not checked.
 check_retention() {
   local dir="$1"
   python3 - "$dir" "$RUN_START" "$RETENTION_MIN_PCT" all.json <(git show "HEAD:$dir/nodes.json" 2>/dev/null) <<'PYEOF'
-import json, sys
+import base64, json, sys
 label, start, pct, current, committed = sys.argv[1:6]
+
+def item(b, i):
+    # One RLP item at b[i]: (payload start, payload end).
+    p = b[i]
+    if p < 0x80: return i, i + 1
+    if p < 0xb8: return i + 1, i + 1 + p - 0x80
+    if p < 0xc0:
+        s = i + 1 + p - 0xb7
+        return s, s + int.from_bytes(b[i + 1:s], "big")
+    if p < 0xf8: return i + 1, i + 1 + p - 0xc0
+    s = i + 1 + p - 0xf7
+    return s, s + int.from_bytes(b[i + 1:s], "big")
+
+def items(b, start, end):
+    out = []
+    while start < end:
+        s, e = item(b, start)
+        out.append((s, e))
+        start = e
+    return out
+
+def endpoint(record):
+    # The ENR is [signature, seq, key, value, ...]: its `ip` (else `ip6`) and `udp` entries.
+    s = record[4:]
+    raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+    top = items(raw, *item(raw, 0))
+    kv = {raw[k[0]:k[1]]: raw[v[0]:v[1]] for k, v in zip(top[2::2], top[3::2])}
+    return (kv.get(b"ip") or kv.get(b"ip6") or b"").hex(), int.from_bytes(kv.get(b"udp", b""), "big")
+
 try:
     prev = json.load(open(committed))
 except ValueError:
     print("  %s: no committed tree, nothing to compare against" % label)
     sys.exit(0)
-now = json.load(open(current))
-back = sum(1 for nid in prev if str(now.get(nid, {}).get("lastResponse") or "") >= start)
-print("  %s: %d of the %d nodes published last time answered this run" % (label, back, len(prev)))
-if prev and back * 100 < len(prev) * int(pct):
-    sys.exit("  ERROR: %s: under %s%% of last time's nodes answered. A network does not lose half\n"
-             "  its reachable nodes overnight; this runner's connection can." % (label, pct))
+published = {}
+for nid, v in prev.items():
+    try:
+        published.setdefault(endpoint(v["record"]), set()).add(nid)
+    except Exception as e:
+        print("  WARNING: %s: cannot read the endpoint of committed node %s (%s); retention not reported"
+              % (label, nid, e))
+        sys.exit(0)
+
+answered, unreadable = {}, 0
+for nid, v in json.load(open(current)).items():
+    if str(v.get("lastResponse") or "") >= start:
+        try:
+            answered.setdefault(endpoint(v["record"]), set()).add(nid)
+        except Exception:
+            unreadable += 1
+
+back = [e for e in published if e in answered]
+rekeyed = sum(1 for e in back if not answered[e] & published[e])
+print("  %s: %d of the %d endpoints published last time answered this run%s%s"
+      % (label, len(back), len(published), ", %d under a new key" % rekeyed if rekeyed else "",
+         "; %d answering records could not be read" % unreadable if unreadable else ""))
+if published and len(back) * 100 < len(published) * int(pct):
+    print("  WARNING: %s: %d of the %d endpoints published last time answered, though the crawl reached "
+          "the rest of the network; publishing what answered" % (label, len(back), len(published)))
+PYEOF
+}
+
+# Carry a node's score across a rotation of its node key, in place in $1.
+#
+# The crawler keys a node by its public key, so a node whose operator rotates
+# its key, as the move to the v1.13 line asks, comes back as a new node with no
+# score, while a node left running on its old key keeps climbing. Wherever more
+# addresses answer than a tree has seats, ranking by score would then put every
+# node whose operator rotated behind every node whose operator did not.
+#
+# So a node that answers this run at the endpoint, IP address and UDP port, of a
+# key that did not, and that first answered after that key last did, takes over
+# that key's score as the last committed crawl recorded it, and the silent key's
+# record is dropped. The score moves rather than doubles, and only whoever
+# receives packets at that endpoint can answer there, so nothing is gained but
+# the standing the endpoint already had. Downtime still costs what it costs any
+# node: the committed score already carries the halving of every check the old
+# key missed before this run, and a key silent long enough for the crawler to
+# drop it leaves nothing to carry. Running this twice in one run carries nothing
+# more, since the first pass drops the records the second would carry from.
+carry_over() {
+  local file="$1"
+  python3 - "$file" "$RUN_START" <(git show "HEAD:$file" 2>/dev/null) <<'PYEOF'
+import base64, json, sys
+path, start, committed = sys.argv[1:4]
+
+def item(b, i):
+    # One RLP item at b[i]: (payload start, payload end).
+    p = b[i]
+    if p < 0x80: return i, i + 1
+    if p < 0xb8: return i + 1, i + 1 + p - 0x80
+    if p < 0xc0:
+        s = i + 1 + p - 0xb7
+        return s, s + int.from_bytes(b[i + 1:s], "big")
+    if p < 0xf8: return i + 1, i + 1 + p - 0xc0
+    s = i + 1 + p - 0xf7
+    return s, s + int.from_bytes(b[i + 1:s], "big")
+
+def items(b, start, end):
+    out = []
+    while start < end:
+        s, e = item(b, start)
+        out.append((s, e))
+        start = e
+    return out
+
+def endpoint(record):
+    # The ENR is [signature, seq, key, value, ...]: its `ip` (else `ip6`) and `udp` entries.
+    s = record[4:]
+    raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+    top = items(raw, *item(raw, 0))
+    kv = {raw[k[0]:k[1]]: raw[v[0]:v[1]] for k, v in zip(top[2::2], top[3::2])}
+    return (kv.get(b"ip") or kv.get(b"ip6") or b"").hex(), int.from_bytes(kv.get(b"udp", b""), "big")
+
+try:
+    before = json.load(open(committed))
+except ValueError:
+    print("  key rotations: no committed crawl set to carry scores from")
+    sys.exit(0)
+nodes = json.load(open(path))
+at, unreadable = {}, 0
+for nid, v in nodes.items():
+    try:
+        e = endpoint(v["record"])
+    except Exception:
+        unreadable += 1
+        continue
+    if e[0]:
+        at.setdefault(e, []).append(nid)
+
+def answered(nid):
+    return str(nodes[nid].get("lastResponse") or "") >= start
+
+moved = points = 0
+for ids in at.values():
+    now = [i for i in ids if answered(i)]
+    if not now or len(ids) < 2:
+        continue
+    # The newest key answering here, and the silent keys it can have replaced.
+    new = max(now, key=lambda i: (str(nodes[i].get("firstResponse") or ""), i))
+    first = str(nodes[new].get("firstResponse") or "")
+    old = [i for i in ids if not answered(i) and int(before.get(i, {}).get("score") or 0) > 0
+           and str(nodes[i].get("lastResponse") or "") <= first]
+    if not old:
+        continue
+    carried = max(int(before[i]["score"]) for i in old)
+    nodes[new]["score"] = int(nodes[new].get("score") or 0) + carried
+    for i in old:
+        del nodes[i]
+    moved += 1
+    points += carried
+if moved:
+    with open(path, "w") as f:
+        json.dump(nodes, f, indent=4)     # devp2p's own layout, so the committed file keeps its form
+print("  key rotations: %d node%s took over the score of a silent key at the same endpoint, %d points%s"
+      % (moved, "" if moved == 1 else "s", points,
+         "; %d records could not be read" % unreadable if unreadable else ""))
 PYEOF
 }
 
@@ -518,23 +923,11 @@ publish_tree() {
   keep_current_fork "$dir/nodes.raw.json" "$net" "$fork" "$dir" \
     || fail "$domain: current-fork check failed -- refusing to publish"
 
-  # Cap the published set against the DNS zone budget -- see CAP_CLASSIC above.
-  #
-  # Rank before truncating, so the cap keeps the nodes most likely to stay up
-  # rather than an arbitrary slice. A node that answered this run ranks ahead of
-  # one that did not; among those, the higher `score` first -- the crawler adds a
-  # point each time a node answers and halves it each time one does not -- then
-  # the later `lastResponse`. Ranked by `lastResponse` first, to the second, a
-  # run's responders fall in the order the crawl reached them, and the cap kept
-  # newly found nodes over long-lived ones -- see docs/node-selection.md.
+  # Rank before truncating, so the cap keeps chosen nodes rather than an
+  # arbitrary slice -- see rank_and_cap.
   local cap; cap=$(cap_for "$net")
-  jq --arg start "$RUN_START" --argjson cap "$cap" '
-      to_entries
-      | sort_by((.value.lastResponse // "") >= $start, .value.score // 0, .value.lastResponse)
-      | reverse
-      | .[0:$cap]
-      | from_entries' "$dir/nodes.raw.json" > "$dir/nodes.json" \
-    || fail "sort/cap failed for $domain"
+  rank_and_cap "$dir/nodes.raw.json" "$dir/nodes.json" "$cap" "$domain" \
+    || fail "$domain: ranking failed -- refusing to publish"
   rm -f "$dir/nodes.raw.json"
 
   local n; n=$(count "$dir/nodes.json")
@@ -616,13 +1009,27 @@ bootnode_status "$BOOTNODE_STATUS" \
 # Before any tree is published, so a refusal never leaves one domain updated and
 # the others not. A refused run commits nothing, so the scores this crawl cut on
 # nodes it could not reach are discarded with it.
+check_reach || fail "the crawl did not reach the network -- refusing to publish anything"
+
+# Once per network, from core-geth's config -- not per tree, and not from the
+# crawl. Warn only; it never refuses or switches the filter -- see
+# check_fork_schedule.
+for net in classic mordor; do
+  check_fork_schedule "$net" \
+    || log "WARNING: $net: core-geth fork schedule could not be read"
+done
+
 for entry in $DOMAINS; do
   domain="${entry%%:*}"
   for net in classic mordor; do
     check_retention "all.$net.$domain" \
-      || fail "all.$net.$domain: most of last time's nodes did not answer -- refusing to publish anything"
+      || log "WARNING: all.$net.$domain: retention could not be read"
   done
 done
+
+# After the checks, which read the crawl as it came back, and before the trees
+# are ranked, which read the scores this leaves -- see carry_over.
+carry_over all.json || fail "could not carry scores across key rotations -- refusing to publish anything"
 
 # Only `all.` trees are published. No core-geth path points snap discovery at a
 # `snap.*` tree on any network -- SnapDiscoveryURLs is set equal to
