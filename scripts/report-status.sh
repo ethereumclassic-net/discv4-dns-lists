@@ -25,8 +25,10 @@
 # open an issue with a matching title, and only people with triage rights can
 # apply a label. A bootnode comment is likewise found by its marker and its
 # author, so a reader's comment that quotes one is never deleted. Only the run
-# log's ERROR lines are copied into the issue, never the log itself, because the
-# issue is public.
+# log's ERROR and WARNING lines are copied into the issue, never the log itself,
+# because the issue is public. A run that publishes can still warn -- most of a
+# tree's addresses not answering, for one -- and its warnings are shown until
+# the next run replaces them.
 #
 # Exit 0 reported, 1 could not report.
 
@@ -75,13 +77,24 @@ def shown(ts):
     # A crawler timestamp, written the way the rest of the issue writes times.
     return str(ts).replace("T", " ")[:16] + " UTC" if ts else None
 
-# The latest failure's ERROR lines, bounded, and unable to close the code fence.
-errors = []
+# The run's ERROR, WARNING and CONCENTRATION lines, bounded, and unable to close the code fence.
+errors, warnings, conc = [], [], []
 if log and os.path.exists(log):
     for line in open(log, errors="replace"):
         if re.match(r"\s*ERROR:", line):
             errors.append(line.rstrip()[:240].replace("```", "'''"))
+        elif re.match(r"\s*WARNING:", line):
+            warnings.append(line.rstrip()[:240].replace("```", "'''"))
+        elif re.match(r"\s*CONCENTRATION:", line):
+            # The gauge is per network, but a tree is published per domain, so the three domains of a
+            # network emit the same line. Reduce the tree name to its network and keep one of each.
+            msg = line.rstrip()[:240].replace("```", "'''").replace("CONCENTRATION: ", "", 1)
+            msg = re.sub(r"^all\.([a-z]+)\.[^:]+:", r"\1:", msg)
+            if msg not in conc:
+                conc.append(msg)
 errors = errors[:20] or ["(no ERROR line in the run's output; see the run log)"]
+warnings = warnings[:20]
+conc = conc[:10]
 
 # Whether each bootnode answered this run's crawl. A file that cannot be read is
 # treated as no file: the run's own state must still be reported.
@@ -175,6 +188,17 @@ else:
             b["network"].capitalize(), b["host"], "Responsive" if b["answered"] else "**Unresponsive**",
             b.get("last_answered") or "none recorded", b.get("last_missed") or "none recorded"))
 
+warn_section = ["### Warnings", "", "From the latest run's output:", "",
+                "```", *warnings, "```", ""] if warnings else []
+
+# How hard the caps worked this run, in aggregate. No address is named: an operator's intent is
+# unknown, the IPs are already public in the trees, and singling one out here would read as an
+# accusation. A figure that climbs over nights is worth attention.
+conc_section = ["### Concentration", "",
+                "How hard the per-address and per-subnet caps worked this run. These are aggregates, naming",
+                "no operator. A figure that climbs from night to night is worth a look.", "",
+                "```", *conc, "```", ""] if conc else []
+
 body = "\n".join([
     "<!-- status: %s -->" % json.dumps(st),
     "This issue is the status page for the nightly **Update DNS discovery lists** workflow. The",
@@ -195,6 +219,8 @@ body = "\n".join([
     "",
     *boot_section,
     "",
+    *warn_section,
+    *conc_section,
     failure_section,
 ]).rstrip() + "\n"
 
