@@ -11,7 +11,8 @@ A node is published when it:
 - carries an `eth` entry in its node record with the network's current fork ID,
   and
 - is among the first 120 Classic or 15 Mordor such nodes in the ranking that
-  [Which nodes the cap keeps](#which-nodes-the-cap-keeps) describes.
+  [Which nodes the cap keeps](#which-nodes-the-cap-keeps) describes, which
+  publishes at most two nodes from any one address and two from any one `/24`.
 
 The criteria are the same for every node, whoever runs it. The lists start a
 node's search and do not choose its peers: after its first contacts, a node finds
@@ -51,11 +52,18 @@ the genesis-stage case again.
 
 **The values are pinned, and a pin goes stale at the next fork.** Before a
 scheduled fork activates, nodes that announce it as their next fork and nodes
-that do not yet know of it carry the same hash, and both are kept. Once any node
-on the schedule advertises the hash that follows the pin, the script refuses to
-publish and names the new value. The last published tree stays in DNS until the
-pin is updated; the script never falls back to publishing the stage the network
-has left.
+that do not yet know of it carry the same hash, and both are kept. A node that
+has moved to the hash after the pin is left out of the tree, not a reason to
+refuse the whole publish: the nodes still on the current fork are the ones a
+syncing client needs, and one node advertising a later hash, truthfully or not,
+must not be able to take every tree down. The pin is not read from Core-Geth
+automatically either, because a fork is scheduled in Core-Geth's `main` config
+before its release is cut and before it activates on the chain, while the
+current-fork nodes keep serving until then. Instead the run reads Core-Geth's own
+`params/config_classic.go` and `params/config_mordor.go` and warns when their
+fork schedule has moved past the pin, leaving the trees on the current fork until
+a maintainer bumps it for the release. The last published tree stays in DNS, and
+the script never falls back to publishing a stage the network has left.
 
 ## How large a tree is, and why
 
@@ -95,11 +103,71 @@ classic nodes and 65.
 
 ## Which nodes the cap keeps
 
-Classic finds more current nodes than its cap, so the cap ranks them and keeps
-the first 120. A node that answered the night's crawl ranks ahead of one that did
-not. Among those, the higher **score** ranks first: the crawler adds a point each
-time a node answers and halves the score each time it does not, so a high score
-marks a node that has kept answering. A tie goes to the more recent answer.
+A tree holds at most 120 Classic or 15 Mordor nodes, ranked:
+
+1. A node that answered the night's crawl ranks ahead of one that did not.
+2. Then the higher **score** ranks first: the crawler adds a point each time a
+   node answers and halves the score each time it does not, so a high score
+   marks a node that has kept answering. A tie goes to the more recent answer.
+
+No address publishes more than two nodes, and no `/24` (or `/48` for IPv6) more
+than two, even with seats left over, and a record that has never answered the
+crawl is never published.
+
+### At most two seats per address, and per subnet
+
+One machine is one point of failure however many node keys it runs, and ranked
+by node alone a host running many keys would hold a seat for each. So no address
+publishes more than two nodes, whatever seats are left over. Measured on the
+2026-11-05 crawl, the 134 Classic nodes that answered sat on 102 addresses, two
+of which ran 25 of the answering keys between them, one of them with 20 on
+consecutive ports. A key-counting ranking publishes all 25; the two-per-address
+cap holds the two to four seats. A seat that only a host already holding two
+could fill stays empty, since the zone budget sets the cap as a ceiling rather
+than a count to reach. On the 2026-11-05 crawl the Classic tree held 114 nodes.
+
+**A second ceiling holds each `/24`**, or `/48` for IPv6, to two nodes as well,
+so that acquiring many addresses in one subnet buys no more than acquiring one.
+The per-address cap holds one machine; this holds one operator spreading over
+addresses in a subnet it controls. The two compose: a `/24` with two addresses
+each running two nodes offers four and publishes two. On the 2026-11-05 crawl it
+changed nothing — 101 of the 103 `/24`s held at most two nodes already, and the
+two that held more were the single-address concentrators the per-address cap had
+itself held to two — so the limit constrains any one subnet's share at no present
+cost.
+
+**The ranking does not otherwise weigh network diversity, and that is
+deliberate.** Both limits are ceilings, not a ranking tier. Ranking each
+subnet's best node ahead of every second node reads as diversity, but every
+fresh identity is the best in its own `/24`, so one node per subnet
+would take a tree-worth of first-tier seats on its first night. The ceilings
+resist concentration without that reordering: a new address climbs only on
+score, which takes the time a score takes, so it cannot pass an established node
+by sitting in an empty subnet.
+
+**The limits do not fall on operators who only share a provider.** The address
+is the one the crawl reached the node at, so a node that answered receives
+packets there. On the same crawl, the 47 nodes at the three hosting providers
+carrying the most of them sat on 45 addresses, and only two `/24`s held more than
+two nodes at all, each a single concentrated address rather than several
+operators sharing a subnet.
+
+### A key rotation keeps a node's standing
+
+The crawler keys a node by its public key, so a node whose operator rotates its
+key, as the move to the `v1.13` line asks, would come back as a new node with no
+score, behind every node still running on its old key. So a node that answers at
+the same endpoint, IP address and UDP port, as a key that went silent, and that
+first answered after that key last did, takes over that key's score as the last
+committed crawl recorded it. Ties in the ranking go to the endpoint rather than
+the key, so a rotated node takes exactly the place it held before.
+
+Only whoever receives packets at an endpoint can answer there, and the score
+moves rather than doubles, so a rotation neither gains nor costs anything.
+Downtime still costs what it costs any node: a key silent long enough for the
+crawler to drop it leaves nothing to carry.
+
+### Score before the last answer
 
 Ranked instead by when each node last answered, to the second, a night's
 responders fall in the order the crawl happened to reach them, and newly found
@@ -115,4 +183,5 @@ nodes displace long-lived ones. Replayed over the 57 crawls committed from
 The two disagree on up to 13 of a tree's 120 nodes a night, so across a whole
 tree the gain is small. Ranking by score also changes fewer of a tree's nodes
 from night to night: 1.7 a night on average, against 4.3. Mordor's tree has never
-reached its cap, so there the ranking decides nothing.
+reached its cap, so there the ranking decides nothing beyond the limit of two per
+address.

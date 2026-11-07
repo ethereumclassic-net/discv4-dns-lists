@@ -51,9 +51,9 @@ dependency declaration. Do not look for a manifest to update, and do not
 suggest adding one.
 
 - `bash` — `scripts/update-lists.sh`, the whole pipeline
-- `jq` — sorting and capping node sets
-- `python3` — seed merge and prune, node counts, fork check, shrink and
-  retention baselines, bootnode status
+- `jq` — record counts in the deSEC publisher and the nightly commit message
+- `python3` — everything that reads node records: seed merge and prune, node
+  counts, the fork check, ranking, the run's checks, bootnode status
 - `gh` — `scripts/report-status.sh`, the status issue; preinstalled on GitHub
   runners
 - `devp2p` — **built from `ethereumclassic/core-geth`**, not from upstream
@@ -107,6 +107,17 @@ hand-edit a `nodes.json`.
   budget, not from crawl yield. A Cloudflare free-plan zone holds 200 records and
   discovery does not get all of it — these domains also carry mail records, the
   apex site and service subdomains. Raising a cap eats that headroom.
+- **Per-address limit** (`MAX_PER_ADDRESS=2`): no address publishes more than
+  two nodes, whatever seats are left, because one machine is one point of failure
+  however many node keys it runs. A seat only a host already holding two could
+  fill stays empty.
+- **Per-subnet limit** (`MAX_PER_SUBNET=2`): no `/24`, or `/48` for IPv6,
+  publishes more than two either, so spreading over many addresses in one subnet
+  buys no more than one address. It falls on no provider-sharing operator — on
+  the 2026-11-05 crawl 101 of 103 `/24`s already held at most two. Both limits are
+  ceilings, not a ranking tier: ranking each subnet's best node first reads as
+  diversity but would hand one node per `/24` a tree-worth of seats on its
+  first night.
 - **Floors** (`MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`) are guards against a
   broken run, **not targets**. Mordor's 5 is deliberate — its ceiling is the
   network, not the crawl.
@@ -114,26 +125,50 @@ hand-edit a `nodes.json`.
   against a crawl that lost its seed trees. It reads its baseline with
   `git show HEAD:<dir>/nodes.json`, so the commit step is load-bearing: with
   nothing committed there is no baseline and the check cannot fire.
-- **Retention** (`RETENTION_MIN_PCT=50`) refuses the whole run, before anything
-  is published, if fewer than half of the last committed tree's nodes answered
-  it. It guards against the runner's own connectivity failing, which marks every
-  node as failing without shrinking any tree.
+- **Reach** (`REACH_MIN_PCT=50`) refuses the whole run, before anything is
+  published, if the crawl reached fewer than half of the nodes that answered an
+  earlier run. It guards against the runner's own connectivity failing, which
+  marks every node as failing without shrinking any tree. The crawl set is
+  mostly other networks, so its answer rate measures the runner, not Ethereum
+  Classic.
+- **Retention** (`RETENTION_MIN_PCT=50`) warns on the status issue, and still
+  publishes, if fewer than half of a tree's last published endpoints answered
+  under any key. Operators rotating keys together can silence most of a tree at
+  once, and a refusal then would repeat every night against the same committed
+  tree.
 - **Fork hashes** (`FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`)
   restrict a tree to nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
-  stage. Once nodes appear on the hash that follows a pin, the run refuses and
-  names the new value. Change a pin only after that network has passed a fork,
-  taking the value from core-geth's `core/forkid/forkid_test.go`.
+  stage. A node on a later hash is left out, never a refusal: one spoofed record
+  must not freeze every tree, and the current-fork nodes are the ones serving
+  syncing peers. The pin is not read from core-geth automatically, because a fork
+  is scheduled in its `main` config before the release is cut and before it
+  activates on chain; `check_fork_schedule` reads that config each run and only
+  warns when the schedule has moved past the pin. Change a pin only after the
+  network has passed a fork, from `ethereumclassic/core-geth`'s
+  `params/config_classic.go` and `params/config_mordor.go`, and bump
+  `FORK_SCHEDULE_CLASSIC`/`FORK_SCHEDULE_MORDOR` with it.
 
-Every one of these checks refuses rather than publishes. Refusing is always the
-correct direction — a client cannot tell a broken crawl from a quiet network.
+A node's score follows its endpoint, IP address and UDP port, across a rotation
+of its node key: a node answering at the endpoint of a key that went silent
+takes over that key's committed score, and ranking ties go to the endpoint, so
+rotating a key costs a node nothing in the ranking.
+
+The floors, the shrink tolerance and the reach check refuse rather than publish,
+which is always the correct direction: a client cannot tell a broken crawl from a
+quiet network. The current-fork filter refuses only when no node carries the pin;
+retention and the fork-schedule check only warn.
 
 A refused or failed run is reported on one issue labeled `pipeline-status`,
 which the workflow rewrites after every scheduled run and comments on only when
-the state changes. The issue also lists whether each bootnode Core-Geth ships
+the state changes. A run that publishes can still warn, and the issue shows that
+run's warnings. The issue also lists whether each bootnode Core-Geth ships
 answered the crawl. A bootnode that misses it does not stop the publish; it gets
-one comment, deleted once it answers again. Subscribe to the issue for alerts;
-do not close it.
+one comment, deleted once it answers again. When a cap bound a tree, the issue
+also shows a concentration gauge — per network, the most nodes any one address or
+subnet offered and how many the caps held back, in aggregate and naming no
+address, so a figure that climbs is a prompt to look rather than an accusation to
+publish. Subscribe to the issue for alerts; do not close it.
 
 ## Ask before
 
@@ -141,8 +176,9 @@ do not close it.
 - **Committing anything**, documentation included.
 - **Changing or disabling the nightly schedule.** It runs daily because the leaf
   records carry a one-day TTL.
-- **Changing a cap, floor, the shrink tolerance, the retention threshold or a
-  fork hash.**
+- **Changing a cap, floor, the shrink tolerance, the reach or retention
+  threshold or a fork hash.**
+- **Changing the per-address or per-subnet limit.**
 - **Adding a domain, DNS provider or publisher.** `devp2p` automates Cloudflare
   and Route53 only; anything else is published from `to-txt` output.
 - **Editing anything under `.github/workflows/`.** These run in the

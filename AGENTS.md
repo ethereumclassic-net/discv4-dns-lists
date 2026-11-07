@@ -29,8 +29,8 @@ That absence is real; do not go looking for a manifest to update.
 | Tool | Used for | Where it comes from |
 |---|---|---|
 | `bash` | `scripts/update-lists.sh` | system |
-| `jq` | sorting and capping node sets | system |
-| `python3` | seed merge and prune, node counts, fork check, shrink and retention baselines, bootnode status | system |
+| `jq` | record counts in the deSEC publisher and the nightly commit message | system |
+| `python3` | everything that reads node records: seed merge and prune, node counts, the fork check, ranking, the run's checks, bootnode status | system |
 | `git` | committing published trees | system |
 | `gh` | `scripts/report-status.sh`, the status issue | preinstalled on GitHub runners |
 | `devp2p` | crawl, filter, sign, publish | **built from source, see below** |
@@ -150,6 +150,22 @@ Change none of these without reading the reasoning in `docs/pipeline.md`,
   Cloudflare free-plan zone holds 200 for the whole zone, not per tree — both
   trees share it, alongside mail records, the apex site and service subdomains,
   and whatever the zone already holds. Raising either cap eats that headroom.
+- **Per-address limit** — `MAX_PER_ADDRESS=2`. No address publishes more than two
+  nodes, whatever seats are left, because one machine is one point of failure
+  however many node keys it runs. On the 2026-11-05 crawl two addresses ran 25 of
+  the answering classic keys between them, one with 20 on consecutive ports; a
+  key-counting ranking publishes all 25, and the cap holds the two to two seats
+  each. A seat only a host already holding two could fill stays empty.
+- **Per-subnet limit** — `MAX_PER_SUBNET=2`. No `/24`, or `/48` for IPv6, publishes
+  more than two nodes either, so acquiring many addresses in one subnet buys no more
+  than acquiring one. The per-address cap holds one machine; this holds one operator
+  spreading over addresses in a subnet it controls. It falls on no operator who only
+  shares a provider: on the 2026-11-05 crawl 101 of the 103 `/24`s held at most two
+  nodes already, and the two that held more were the single-address concentrators the
+  per-address cap had itself capped, so the subnet cap removed nothing further. The
+  ranking stays network-blind: both limits are ceilings, never a tier that ranks a
+  subnet's best node first, which reads as diversity but would hand one node per
+  `/24` a tree-worth of seats on its first night.
 - **Floors** — `MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`. These are floors
   against a broken run, **not targets**. `MIN_NODES_MORDOR` is 5, well below a
   normal night's Mordor count, deliberately: Mordor's ceiling is the network, not
@@ -161,24 +177,42 @@ Change none of these without reading the reasoning in `docs/pipeline.md`,
   from `git show HEAD:<dir>/nodes.json`, **so the commit step is
   load-bearing**: if trees are never committed there is no baseline and the
   check cannot fire.
-- **Retention** — `RETENTION_MIN_PCT=50`. Before anything is published, the run
-  refuses if fewer than half of the last committed tree's nodes answered it. This
-  is the guard against the runner's own connectivity failing: a crawl that cannot
-  reach the network marks every node as failing but does not shrink any tree,
-  because the cap fills it from earlier runs. Measured over the first sixteen
-  nightlies: 111 to 119 of 120 classic nodes answered the next night, and
-  mordor's worst night was 8 of 13.
+- **Reach** — `REACH_MIN_PCT=50`. Before anything is published, the run refuses
+  if the crawl reached fewer than half of the nodes that answered an earlier run.
+  This is the guard against the runner's own connectivity failing: a crawl that
+  cannot reach the network marks every node as failing but does not shrink any
+  tree, because the cap fills it from earlier runs. The crawl set holds about
+  30,000 nodes of every network, so its answer rate measures the runner, not
+  Ethereum Classic: over the 56 runs from 2026-09-11 to 2026-11-05 it never fell
+  below 96.7%.
+- **Retention** — `RETENTION_MIN_PCT=50`. The run warns on the status issue, and
+  still publishes, if fewer than half of a tree's last published endpoints
+  answered under any key. Operators rotating keys together can silence most of a
+  tree at once, as the move to the `v1.13` line asks, and a refusal then would
+  repeat every night against the same committed tree. Over the same runs, 85.8%
+  to 100% of the classic tree's endpoints answered the next night.
 - **Fork hashes** — `FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`. A
   published tree keeps only nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
-  stage that unsynced and non-ETC nodes advertise. Once nodes appear on the hash
-  that follows a pin, the run refuses and names the new value. Change a pin only
-  when that network has passed a fork, and take the value from core-geth's
-  `core/forkid/forkid_test.go`, never from the refusal alone.
+  stage that unsynced and non-ETC nodes advertise. A node on a later hash is left
+  out, never a refusal: one spoofed `eth` entry must not be able to freeze every
+  tree, and the nodes still on the current fork are the ones serving syncing
+  peers, so they stay published until a human bumps the pin. The pin does not
+  follow core-geth automatically, because a fork lands in core-geth's `main`
+  config before its release is cut and before it activates on chain, while the
+  current-fork nodes keep serving until then. `check_fork_schedule` reads
+  core-geth's own config each run and only warns when the schedule has moved past
+  the pin. Change a pin only when the network has passed a fork, taking the value
+  from `ethereumclassic/core-geth`'s `params/config_classic.go` and
+  `params/config_mordor.go` (`core/forkid/forkid_test.go` cross-checks the
+  resulting hash), and bump `FORK_SCHEDULE_CLASSIC`/`FORK_SCHEDULE_MORDOR` in the
+  same change.
 
-Every one of these checks refuses rather than publishes. A client reading a tree
-cannot tell a broken crawl from a quiet network, so refusing is always the
-correct direction.
+The floors, the shrink tolerance and the reach check refuse rather than publish.
+A client reading a tree cannot tell a broken crawl from a quiet network, so
+refusing is the correct direction for each of them. The current-fork filter
+refuses only when no node carries the pin at all; retention and the fork-schedule
+check only warn, for the reasons given above.
 
 ## Facts that mislead if you do not know them
 
@@ -192,6 +226,12 @@ correct direction.
   answered, once no seed tree carries it. That second prune runs only when every
   seed tree synced, so a resolver fault here is never read as the trees dropping
   those records.
+- **A score follows its endpoint across a key rotation.** The crawler keys a node
+  by its public key, so a rotated key would start again from zero. A node that
+  answers at the endpoint, IP address and UDP port, of a key that went silent
+  takes over that key's committed score (`carry_over`), and ties in the ranking
+  go to the endpoint, so rotating a key, as the move off the `v1.12` line asks,
+  costs a node nothing in the ranking.
 - **A failed run is reported on one status issue.** GitHub's own notification
   for a scheduled run reaches only whoever last edited its schedule, so the
   workflow also keeps a single issue labeled `pipeline-status`, rewrites it
@@ -202,7 +242,14 @@ correct direction.
   not stop the publish; it gets one comment, which the first run it answers
   again deletes. Do not close the issue or remove its label; the workflow finds
   it by label and author, never by title, and finds its bootnode comments by
-  marker and author.
+  marker and author. A run that publishes can still warn, as when most of a
+  tree's endpoints did not answer, and the issue shows that run's warnings.
+- **The issue also carries a concentration gauge.** Whenever a cap bound a tree,
+  the issue shows, per network, the most nodes any one address or subnet offered
+  and how many the caps held back. It is aggregate and names no address: the
+  concentrated IPs are already public in the trees, and an operator's intent is
+  unknown, so a figure that climbs from night to night is a prompt to look, never
+  an accusation to publish. A night that bound no cap shows nothing.
 - **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
   snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
   reads the `all.*` trees in every sync mode, light included. Adding either spends
@@ -252,8 +299,9 @@ Do not "fix" the disabled config into an active one. Its state is a decision.
 - **Changing or disabling the nightly schedule.** It runs daily because the
   leaf records carry a one-day TTL; the reasoning is on the `schedule:` block in
   the workflow.
-- **Changing a cap, a floor, the shrink tolerance, the retention threshold or a
-  fork hash.** See above.
+- **Changing a cap, a floor, the shrink tolerance, the reach or retention
+  threshold or a fork hash.** See above.
+- **Changing the per-address or per-subnet limit.** See above.
 - **Adding a domain, a DNS provider or a publisher.**
 - **Changing anything under `.github/workflows/`.** These run in the
   organization's CI with the organization's secrets.
@@ -272,7 +320,8 @@ Do not "fix" the disabled config into an active one. Its state is a decision.
 - **Hand-edit a generated `nodes.json`.**
 - **Add, change, or recommend changing `LICENSE`.** Licensing is the operator's
   and is a legal question before it is a technical one.
-- **Publish a tree that failed a check.** Every check refuses deliberately.
+- **Publish a tree that failed a check.** Every check that refuses does so
+  deliberately.
 
 ### Secrets the workflow expects
 

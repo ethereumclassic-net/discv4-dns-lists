@@ -91,7 +91,8 @@ that form and the Mordor one.
 
 Every scheduled run reports its result on one issue labeled
 [`pipeline-status`](https://github.com/ethereumclassic/discv4-dns-lists/issues?q=label%3Apipeline-status),
-along with whether each bootnode Core-Geth ships answered the night's crawl.
+along with whether each bootnode Core-Geth ships answered the night's crawl and
+any warning the run raised.
 Subscribe to it to be notified when a run fails, when it recovers, and when a
 bootnode stops answering.
 

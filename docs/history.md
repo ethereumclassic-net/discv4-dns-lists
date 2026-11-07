@@ -78,10 +78,11 @@ are left out for the reason given in
 **Where this repository differs:** it seeds from the existing published trees
 before crawling, publishes only nodes on the current fork ID, and refuses to
 publish a tree that is empty, below an absolute floor, or sharply smaller than the
-last one, or any tree at all on a run where most of the last tree's nodes stopped
-answering. Those checks are additions for this deployment, not corrections to
-prior art. It also ranks the nodes that answered a night's crawl by score rather
-than by the second each answered, which keeps the nodes that stay up, as
+last one, or any tree at all on a run whose crawl did not reach the network.
+Those checks are additions for this deployment, not corrections to
+prior art. It also publishes at most two nodes from any one address and two from
+any one `/24`, and ranks the rest by score rather than by the second each
+answered, which keeps the nodes that stay up, as
 [Which nodes the cap keeps](node-selection.md#which-nodes-the-cap-keeps) shows.
 
 The two also build their working set differently. That repository rebuilds

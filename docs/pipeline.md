@@ -15,19 +15,23 @@ things:
 2. **Crawl.** `devp2p discv4 crawl` walks the DHT from the bootnodes Core-Geth
    ships, and **revalidates the seeded set**. Every node is re-pinged; one that
    stops answering is dropped after a few missed checks, and a seeded node that
-   never answers is dropped once no seed tree carries it.
+   never answers is dropped once no seed tree carries it. A node that rotates its
+   key keeps its score, as
+   [A key rotation keeps a node's standing](node-selection.md#a-key-rotation-keeps-a-nodes-standing)
+   describes.
 3. **Filter.** `devp2p nodeset filter -eth-network classic|mordor` keeps nodes
    whose fork ID is anywhere on that network's fork schedule. The script then
    keeps only the nodes on its **current** fork ID, as
    [How nodes are chosen](node-selection.md#only-nodes-on-the-current-fork-id-are-published)
    describes.
-4. **Cap** to the DNS zone budget, **sign** with the project key, **publish**, and
-   **commit** the result here. Every commit message carries the node count of
+4. **Cap** to the DNS zone budget with at most two nodes per address and two per
+   `/24`, **sign**
+   with the project key, **publish**, and **commit** the result here. Every commit message carries the node count of
    each tree, so a degraded publish shows in `git log` without diffing anything.
 
 **Seeding is not trusting the other publishers.** Step 2 re-pings everything step
-1 brought in, so a stale or hostile entry is not republished while live nodes
-exist, and it is removed from the set as well. What seeding buys is reach;
+1 brought in, and an entry that has never answered is never published, so a stale
+or hostile entry reaches no tree, and it is removed from the set as well. What seeding buys is reach;
 verification still happens locally.
 
 **A seeded node that never answers needs its own removal.** `devp2p` drops a node
@@ -72,19 +76,29 @@ The relative check compares against the last **committed** tree, which is why th
 commit step matters as much as the publish step: without it there is no baseline,
 and the check cannot fire at all.
 
-**A retention check** catches the failure the other two cannot see. When the
-runner itself loses the network, the crawl marks every node it cannot reach as
-failing, but the cap still fills each tree from nodes that answered on earlier
-runs, so no tree shrinks. So before anything is published, the run counts how
-many of the last committed tree's nodes answered it, and refuses when fewer than
-half did: a network does not lose half its reachable nodes overnight, but a
-runner can lose its connection. Over the first sixteen nightlies, 111 to 119 of 120
-classic nodes answered the next night, and mordor's worst night was 8 of 13. A
-refused run commits nothing, so the scores it cut on nodes it could not reach are
-discarded with it.
+**A reach check** catches the failure the other two cannot see. When the runner
+itself loses the network, the crawl marks every node it cannot reach as failing,
+but the cap still fills each tree from nodes that answered on earlier runs, so no
+tree shrinks. So before anything is published, the run counts how many of the
+nodes that answered an earlier crawl answered this one, across the whole crawl
+set rather than one tree, and refuses when fewer than half did. The crawl set
+holds about 30,000 nodes of every network the DHT carries, so its answer rate
+measures this runner's reach, not Ethereum Classic's: over the 56 runs from
+2026-09-11 to 2026-11-05 it never fell below 96.7%. A refused run commits
+nothing, so the scores it cut on nodes it could not reach are discarded with it.
 
 All three refuse rather than publish. A client reading a tree cannot tell a
 broken crawl from a quiet network.
+
+**A tree losing most of its nodes is reported, not refused.** Most of a tree can
+stop answering at once when operators rotate their node keys together, as the
+move to the `v1.13` line asks, and the crawl sees a rotated node as a new node.
+So the run also counts how many of each tree's last published endpoints, IP
+address and port, answered under any key, and warns on the status issue when
+fewer than half did. It publishes what answered: refusing would keep the old
+tree, and every later run, comparing against the same committed tree, would
+refuse again. Over the same 56 runs, between 85.8% and 100% of the classic
+tree's endpoints answered the next night.
 
 ## A refusal is reported, not silent
 
@@ -109,6 +123,10 @@ clients reach the trees without it. Instead the run comments once, naming the
 bootnode, and the first run it answers again deletes that comment, so a
 one-night miss leaves nothing in the thread. One runner's view is not proof that
 a node is down.
+
+**A run that publishes can still warn**, as when most of a tree's endpoints did
+not answer. The issue shows the latest run's warnings until the next run
+replaces them. Like any edit, that notifies no one.
 
 The issue is found by its label and its author, never its title, since anyone
 can open an issue with a matching title. If the runner dies before the report
