@@ -227,10 +227,12 @@ check only warn, for the reasons given above.
   those records.
 - **A score follows its endpoint across a key rotation.** The crawler keys a node
   by its public key, so a rotated key would start again from zero. A node that
-  answers at the endpoint, IP address and UDP port, of a key that went silent
-  takes over that key's committed score (`carry_over`), and ties in the ranking
-  go to the endpoint, so rotating a key, as the move off the `v1.12` line asks,
-  costs a node nothing in the ranking.
+  answers at the endpoint, IP address and UDP port, of a key that went silent,
+  on the same network's current fork hash, takes over that key's committed score
+  (`carry_over`), and ties in the ranking go to the endpoint, so rotating a key,
+  as the move off the `v1.12` line asks, costs a node nothing in the ranking.
+  Only the networks published here are considered; the crawl set's other
+  networks are left as the crawl wrote them.
 - **A failed run is reported on one status issue.** GitHub's own notification
   for a scheduled run reaches only whoever last edited its schedule, so the
   workflow also keeps a single issue labeled `pipeline-status`, rewrites it

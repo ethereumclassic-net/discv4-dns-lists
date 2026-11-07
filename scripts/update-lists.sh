@@ -723,18 +723,22 @@ PYEOF
 # So a node that answers this run at the endpoint, IP address and UDP port, of a
 # key that did not, and that first answered after that key last did, takes over
 # that key's score as the last committed crawl recorded it, and the silent key's
-# record is dropped. The score moves rather than doubles, and only whoever
-# receives packets at that endpoint can answer there, so nothing is gained but
-# the standing the endpoint already had. Downtime still costs what it costs any
-# node: the committed score already carries the halving of every check the old
-# key missed before this run, and a key silent long enough for the crawler to
-# drop it leaves nothing to carry. Running this twice in one run carries nothing
-# more, since the first pass drops the records the second would carry from.
+# record is dropped. Both records must carry the current fork hash of a network
+# this repository publishes, the same one: the crawl set holds every network the
+# DHT carries, and the rest are left as the crawl wrote them. A key silent long
+# enough for the crawler to drop it leaves nothing to carry. Running this twice
+# in one run carries nothing more, since the first pass drops the records the
+# second would carry from.
 carry_over() {
   local file="$1"
-  python3 - "$file" "$RUN_START" <(git show "HEAD:$file" 2>/dev/null) <<'PYEOF'
+  python3 - "$file" "$RUN_START" <(git show "HEAD:$file" 2>/dev/null) \
+    "classic=$FORK_HASH_CLASSIC" "mordor=$FORK_HASH_MORDOR" <<'PYEOF'
 import base64, json, sys
 path, start, committed = sys.argv[1:4]
+pins = {}    # fork hash -> the network it is the current fork of
+for arg in sys.argv[4:]:
+    net, _, fork = arg.partition("=")
+    pins[fork.lower()] = net
 
 def item(b, i):
     # One RLP item at b[i]: (payload start, payload end).
@@ -757,12 +761,22 @@ def items(b, start, end):
     return out
 
 def endpoint(record):
-    # The ENR is [signature, seq, key, value, ...]: its `ip` (else `ip6`) and `udp` entries.
+    # The ENR is [signature, seq, key, value, ...]: its `ip` (else `ip6`) and `udp` entries, and the fork
+    # hash its `eth` entry carries, or None for a record without a readable one.
     s = record[4:]
     raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
     top = items(raw, *item(raw, 0))
     kv = {raw[k[0]:k[1]]: raw[v[0]:v[1]] for k, v in zip(top[2::2], top[3::2])}
-    return (kv.get(b"ip") or kv.get(b"ip6") or b"").hex(), int.from_bytes(kv.get(b"udp", b""), "big")
+    return ((kv.get(b"ip") or kv.get(b"ip6") or b"").hex(), int.from_bytes(kv.get(b"udp", b""), "big"),
+            fork_hash(kv.get(b"eth")))
+
+def fork_hash(eth):
+    # The `eth` value is [[fork hash, fork next], ...].
+    try:
+        fid = items(eth, *items(eth, 0, len(eth))[0])
+        return eth[fid[0][0]:fid[0][1]].hex()
+    except Exception:
+        return None
 
 try:
     before = json.load(open(committed))
@@ -777,14 +791,14 @@ for nid, v in nodes.items():
     except Exception:
         unreadable += 1
         continue
-    if e[0]:
+    if e[0] and e[2] in pins:
         at.setdefault(e, []).append(nid)
 
 def answered(nid):
     return str(nodes[nid].get("lastResponse") or "") >= start
 
-moved = points = 0
-for ids in at.values():
+moved, points = {}, 0
+for e, ids in at.items():
     now = [i for i in ids if answered(i)]
     if not now or len(ids) < 2:
         continue
@@ -799,13 +813,13 @@ for ids in at.values():
     nodes[new]["score"] = int(nodes[new].get("score") or 0) + carried
     for i in old:
         del nodes[i]
-    moved += 1
+    moved[pins[e[2]]] = moved.get(pins[e[2]], 0) + 1
     points += carried
 if moved:
     with open(path, "w") as f:
         json.dump(nodes, f, indent=4)     # devp2p's own layout, so the committed file keeps its form
-print("  key rotations: %d node%s took over the score of a silent key at the same endpoint, %d points%s"
-      % (moved, "" if moved == 1 else "s", points,
+print("  key rotations, nodes that took over the score of a silent key at the same endpoint and fork: %s, %d points%s"
+      % (", ".join("%s %d" % (net, moved.get(net, 0)) for net in sorted(set(pins.values()))), points,
          "; %d records could not be read" % unreadable if unreadable else ""))
 PYEOF
 }

@@ -150,9 +150,10 @@ hand-edit a `nodes.json`.
   `FORK_SCHEDULE_CLASSIC`/`FORK_SCHEDULE_MORDOR` with it.
 
 A node's score follows its endpoint, IP address and UDP port, across a rotation
-of its node key: a node answering at the endpoint of a key that went silent
-takes over that key's committed score, and ranking ties go to the endpoint, so
-rotating a key costs a node nothing in the ranking.
+of its node key: a node answering at the endpoint of a key that went silent, on
+the same network's current fork hash, takes over that key's committed score, and
+ranking ties go to the endpoint, so rotating a key costs a node nothing in the
+ranking. Only the networks published here are considered.
 
 The floors, the shrink tolerance and the reach check refuse rather than publish,
 which is always the correct direction: a client cannot tell a broken crawl from a

@@ -163,10 +163,9 @@ first answered after that key last did, takes over that key's score as the last
 committed crawl recorded it. Ties in the ranking go to the endpoint rather than
 the key, so a rotated node takes exactly the place it held before.
 
-Only whoever receives packets at an endpoint can answer there, and the score
-moves rather than doubles, so a rotation neither gains nor costs anything.
-Downtime still costs what it costs any node: a key silent long enough for the
-crawler to drop it leaves nothing to carry.
+Both keys must advertise the same network's current fork ID, and only the
+networks published here are considered. A key silent long enough for the crawler
+to drop it leaves nothing to carry.
 
 ### Score before the last answer
 
