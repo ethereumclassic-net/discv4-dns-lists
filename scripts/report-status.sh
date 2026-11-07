@@ -21,11 +21,15 @@
 # leaves nothing in the thread. A run without that file changes no bootnode
 # comment, since it has nothing new to say about them.
 #
-# The issue is found by its label and its author, never its title: anyone can
-# open an issue with a matching title, and only people with triage rights can
-# apply a label. A bootnode comment is likewise found by its marker and its
-# author, so a reader's comment that quotes one is never deleted. Only the run
-# log's ERROR and WARNING lines are copied into the issue, never the log itself,
+# It also shows the trees the run built, one row per network, from the TREE
+# lines update-lists.sh prints: each tree's nodes against its seats, how many of
+# them first answered that run, and how many nodes the per-address and
+# per-subnet limits held back.
+#
+# The issue is found by its label and its author, never its title. A bootnode
+# comment is likewise found by its marker and its author, so a reader's comment
+# that quotes one is never deleted. Only the run log's ERROR and WARNING lines,
+# and the figures on its TREE lines, reach the issue, never the log itself,
 # because the issue is public. A run that publishes can still warn -- most of a
 # tree's addresses not answering, for one -- and its warnings are shown until
 # the next run replaces them.
@@ -77,24 +81,29 @@ def shown(ts):
     # A crawler timestamp, written the way the rest of the issue writes times.
     return str(ts).replace("T", " ")[:16] + " UTC" if ts else None
 
-# The run's ERROR, WARNING and CONCENTRATION lines, bounded, and unable to close the code fence.
-errors, warnings, conc = [], [], []
+# The run's ERROR and WARNING lines, bounded and unable to close the code fence, and the figures on
+# its TREE lines.
+FIGURES = ("nodes", "cap", "first_answered", "held_back", "busiest_address", "busiest_subnet")
+errors, warnings, trees = [], [], {}
 if log and os.path.exists(log):
     for line in open(log, errors="replace"):
         if re.match(r"\s*ERROR:", line):
             errors.append(line.rstrip()[:240].replace("```", "'''"))
         elif re.match(r"\s*WARNING:", line):
             warnings.append(line.rstrip()[:240].replace("```", "'''"))
-        elif re.match(r"\s*CONCENTRATION:", line):
-            # The gauge is per network, but a tree is published per domain, so the three domains of a
-            # network emit the same line. Reduce the tree name to its network and keep one of each.
-            msg = line.rstrip()[:240].replace("```", "'''").replace("CONCENTRATION: ", "", 1)
-            msg = re.sub(r"^all\.([a-z]+)\.[^:]+:", r"\1:", msg)
-            if msg not in conc:
-                conc.append(msg)
+        elif re.match(r"\s*TREE: ", line):
+            # One line per tree, and a network's tree is built alike on every domain, so keep one per
+            # network. Only whole numbers reach the issue.
+            try:
+                t = json.loads(line.split("TREE: ", 1)[1])
+                net = re.fullmatch(r"all\.([a-z]+)\.[A-Za-z0-9.-]+", t["tree"]).group(1)
+                figures = {k: int(t[k]) for k in FIGURES}
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+            if net not in trees and len(trees) < 10:
+                trees[net] = figures
 errors = errors[:20] or ["(no ERROR line in the run's output; see the run log)"]
 warnings = warnings[:20]
-conc = conc[:10]
 
 # Whether each bootnode answered this run's crawl. A file that cannot be read is
 # treated as no file: the run's own state must still be reported.
@@ -191,13 +200,13 @@ else:
 warn_section = ["### Warnings", "", "From the latest run's output:", "",
                 "```", *warnings, "```", ""] if warnings else []
 
-# How hard the caps worked this run, in aggregate. No address is named: an operator's intent is
-# unknown, the IPs are already public in the trees, and singling one out here would read as an
-# accusation. A figure that climbs over nights is worth attention.
-conc_section = ["### Concentration", "",
-                "How hard the per-address and per-subnet caps worked this run. These are aggregates, naming",
-                "no operator. A figure that climbs from night to night is worth a look.", "",
-                "```", *conc, "```", ""] if conc else []
+tree_section = ["### Trees", "", "The trees the latest run built, one row per network:", "",
+                "| Network | Nodes | Seats | First answered this run | Over the address or subnet limit "
+                "| Most from one address | Most from one /24 or /48 |",
+                "|---|---|---|---|---|---|---|",
+                *("| %s | %d | %d | %d | %d | %d | %d |" % ((net.capitalize(),) + tuple(f[k] for k in FIGURES))
+                  for net, f in trees.items()),
+                ""] if trees else []
 
 body = "\n".join([
     "<!-- status: %s -->" % json.dumps(st),
@@ -220,7 +229,7 @@ body = "\n".join([
     *boot_section,
     "",
     *warn_section,
-    *conc_section,
+    *tree_section,
     failure_section,
 ]).rstrip() + "\n"
 

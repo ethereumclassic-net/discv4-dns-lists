@@ -165,11 +165,10 @@ which the workflow rewrites after every scheduled run and comments on only when
 the state changes. A run that publishes can still warn, and the issue shows that
 run's warnings. The issue also lists whether each bootnode Core-Geth ships
 answered the crawl. A bootnode that misses it does not stop the publish; it gets
-one comment, deleted once it answers again. When a cap bound a tree, the issue
-also shows a concentration gauge — per network, the most nodes any one address or
-subnet offered and how many the caps held back, in aggregate and naming no
-address, so a figure that climbs is a prompt to look rather than an accusation to
-publish. Subscribe to the issue for alerts; do not close it.
+one comment, deleted once it answers again. The issue also shows the trees the
+run built, one row per network: nodes against seats, how many first answered
+that run, and how many nodes the per-address and per-subnet limits held back.
+Subscribe to the issue for alerts; do not close it.
 
 ## Ask before
 

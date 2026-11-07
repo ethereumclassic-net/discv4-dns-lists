@@ -245,12 +245,11 @@ check only warn, for the reasons given above.
   it by label and author, never by title, and finds its bootnode comments by
   marker and author. A run that publishes can still warn, as when most of a
   tree's endpoints did not answer, and the issue shows that run's warnings.
-- **The issue also carries a concentration gauge.** Whenever a cap bound a tree,
-  the issue shows, per network, the most nodes any one address or subnet offered
-  and how many the caps held back. It is aggregate and names no address: the
-  concentrated IPs are already public in the trees, and an operator's intent is
-  unknown, so a figure that climbs from night to night is a prompt to look, never
-  an accusation to publish. A night that bound no cap shows nothing.
+- **The issue also shows the trees the run built.** One row per network: the
+  tree's nodes against its seats, how many of them first answered that run, how
+  many nodes the per-address and per-subnet limits held back, and the most nodes
+  any one address or subnet offered. The figures are aggregates, read from the
+  `TREE:` lines the run prints.
 - **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
   snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
   reads the `all.*` trees in every sync mode, light included. Adding either spends

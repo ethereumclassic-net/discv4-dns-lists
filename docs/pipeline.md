@@ -122,6 +122,10 @@ bootnode, and the first run it answers again deletes that comment, so a
 one-night miss leaves nothing in the thread. One runner's view is not proof that
 a node is down.
 
+**The issue also shows the trees the run built**, one row per network: how many
+nodes each holds against its seats, how many of them first answered that night's
+crawl, and how many nodes the per-address and per-subnet limits held back.
+
 **A run that publishes can still warn**, as when most of a tree's endpoints did
 not answer. The issue shows the latest run's warnings until the next run
 replaces them. Like any edit, that notifies no one.

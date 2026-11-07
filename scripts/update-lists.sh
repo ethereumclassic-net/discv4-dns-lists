@@ -603,16 +603,15 @@ print("  %s: %d of %d nodes answered this run, on %d addresses in %d networks; %
       "and %d further past %d per subnet left out; %d kept, cap %d"
       % (label, len(rows), len(rows) + silent, len({r[2] for r in rows}), len({r[5] for r in rows}),
          past_addr, per, past_net, per_net, len(kept), cap))
-# A concentration gauge for the status issue, in aggregate so it names no operator: the most any one
-# address or /24 offered, and how many the caps held back. A line only when a cap actually bound, so a
-# run with none is silent, and a figure that climbs over nights is worth attention.
+# The tree's summary for the status issue -- see scripts/report-status.sh: the
+# seats it filled, how many of its nodes first answered this run, and how many
+# nodes the per-address and per-subnet limits held back, in aggregate.
 busiest_addr = max(collections.Counter(r[2] for r in rows).values(), default=0)
 busiest_net = max(collections.Counter(r[5] for r in rows).values(), default=0)
-if busiest_addr > per or busiest_net > per_net:
-    print("CONCENTRATION: %s: the busiest address offered %d node%s and the busiest /24 or /48 offered %d; "
-          "the caps publish at most %d and %d from each, so %d of %d were held back."
-          % (label, busiest_addr, "" if busiest_addr == 1 else "s", busiest_net, per, per_net,
-             len(rows) - len(eligible), len(rows)))
+print("TREE: " + json.dumps({
+    "tree": label, "nodes": len(kept), "cap": cap,
+    "first_answered": sum(1 for r in kept if str(nodes[r[4]].get("firstResponse") or "") >= start),
+    "held_back": len(rows) - len(eligible), "busiest_address": busiest_addr, "busiest_subnet": busiest_net}))
 PYEOF
 }
 
