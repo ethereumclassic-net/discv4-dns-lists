@@ -42,6 +42,23 @@ geth --classic --bootnodes "$(curl -fsSL https://raw.githubusercontent.com/ether
   | jq -r '[to_entries | sort_by(.value.score, .value.lastResponse) | reverse | .[:20][] | .value.record] | join(",")')"
 ```
 
+On Windows, read the records in PowerShell, in the folder that holds the node's
+`geth.exe`. The node can keep running for this step:
+
+```powershell
+$nodes = (Invoke-WebRequest "https://raw.githubusercontent.com/ethereumclassic/discv4-dns-lists/main/all.classic.ethereumclassic.net/nodes.json" -UseBasicParsing).Content | ConvertFrom-Json
+$records = ($nodes.PSObject.Properties.Value | Sort-Object score, lastResponse -Descending | Select-Object -First 20).record -join ","
+$records.StartsWith("enr:")
+```
+
+The last line must print `True`. If it prints `False` or an error, the records
+were not read: do not start the node with them. Otherwise, start the node from
+the same window, which holds them as `$records`:
+
+```powershell
+.\geth.exe --classic --bootnodes $records
+```
+
 For Mordor, use `--mordor` and `all.mordor.ethereumclassic.net`. The same file can
 be read from a clone of this repository. Every `v1.12` and `v1.13` release accepts
 these `enr:` records as bootnodes. The flag replaces the built-in list, and a
