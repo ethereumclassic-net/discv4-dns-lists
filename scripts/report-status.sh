@@ -23,8 +23,9 @@
 #
 # It also shows the trees the run built, one row per network, from the TREE
 # lines update-lists.sh prints: each tree's nodes against its seats, how many of
-# them first answered that run, and how many nodes the per-address and
-# per-subnet limits held back.
+# them first answered that run, how many nodes the per-address and per-subnet
+# limits held back, and how the nodes that answered spread over addresses and
+# over /24 or /48 networks.
 #
 # The issue is found by its label and its author, never its title. A bootnode
 # comment is likewise found by its marker and its author, so a reader's comment
@@ -54,14 +55,14 @@ now = os.environ.get("NOW") or datetime.datetime.now(datetime.timezone.utc).strf
 BOTS = {"app/github-actions", "github-actions", "github-actions[bot]"}
 
 def gh_run(args, body=None):
-    r = subprocess.run([gh, *args, "--repo", repo], input=body, capture_output=True, text=True)
+    r = subprocess.run([gh, *args, "--repo", repo], input=body, capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         sys.exit("report-status: gh %s failed: %s" % (" ".join(args[:2]), r.stderr.strip()))
     return r.stdout
 
 def gh_api(args):
     # `gh api` takes no --repo: its paths name the repository.
-    r = subprocess.run([gh, "api", *args], capture_output=True, text=True)
+    r = subprocess.run([gh, "api", *args], capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         sys.exit("report-status: gh api %s failed: %s" % (args[-1], r.stderr.strip()))
     return r.stdout
@@ -83,7 +84,16 @@ def shown(ts):
 
 # The run's ERROR and WARNING lines, bounded and unable to close the code fence, and the figures on
 # its TREE lines.
-FIGURES = ("nodes", "cap", "first_answered", "held_back", "busiest_address", "busiest_subnet")
+FIGURES = ("nodes", "cap", "first_answered", "held_back")
+SPREADS = ("per_address", "per_subnet")
+
+def read_spread(v):
+    # A TREE line's spread: at most 64 [nodes, how many] pairs of positive whole numbers.
+    if not isinstance(v, list) or len(v) > 64 or not all(
+            isinstance(p, list) and len(p) == 2 and all(type(x) is int and x > 0 for x in p) for p in v):
+        raise ValueError("not a spread")
+    return sorted(((p[0], p[1]) for p in v), reverse=True)
+
 errors, warnings, trees = [], [], {}
 if log and os.path.exists(log):
     for line in open(log, errors="replace"):
@@ -98,6 +108,7 @@ if log and os.path.exists(log):
                 t = json.loads(line.split("TREE: ", 1)[1])
                 net = re.fullmatch(r"all\.([a-z]+)\.[A-Za-z0-9.-]+", t["tree"]).group(1)
                 figures = {k: int(t[k]) for k in FIGURES}
+                figures.update((k, read_spread(t[k])) for k in SPREADS)
             except (ValueError, KeyError, TypeError, AttributeError):
                 continue
             if net not in trees and len(trees) < 10:
@@ -200,11 +211,26 @@ else:
 warn_section = ["### Warnings", "", "From the latest run's output:", "",
                 "```", *warnings, "```", ""] if warnings else []
 
-tree_section = ["### Trees", "", "The trees the latest run built, one row per network:", "",
+def spread_cell(pairs, one, many):
+    # As "10 addresses: 3, 2 ×2, 1 ×7".
+    total = sum(n for _, n in pairs)
+    if not total:
+        return "none"
+    return "%d %s: %s" % (total, one if total == 1 else many,
+                          ", ".join(str(size) if n == 1 else "%d ×%d" % (size, n) for size, n in pairs))
+
+tree_section = ["### Trees", "",
+                "The trees the latest run built, one row per network. The last two columns group the nodes",
+                "that answered this run on the network's current fork, before the address and subnet limits,",
+                "by address and by /24 network (/48 for IPv6): how many of each, then how many nodes each",
+                "holds, largest first. `2 ×5` means five of them hold two nodes each.", "",
                 "| Network | Nodes | Seats | First answered this run | Over the address or subnet limit "
-                "| Most from one address | Most from one /24 or /48 |",
+                "| Nodes per address | Nodes per /24 or /48 |",
                 "|---|---|---|---|---|---|---|",
-                *("| %s | %d | %d | %d | %d | %d | %d |" % ((net.capitalize(),) + tuple(f[k] for k in FIGURES))
+                *("| %s | %d | %d | %d | %d | %s | %s |" % (
+                    net.capitalize(), f["nodes"], f["cap"], f["first_answered"], f["held_back"],
+                    spread_cell(f["per_address"], "address", "addresses"),
+                    spread_cell(f["per_subnet"], "network", "networks"))
                   for net, f in trees.items()),
                 ""] if trees else []
 

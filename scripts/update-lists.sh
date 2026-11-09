@@ -591,14 +591,23 @@ print("  %s: %d of %d nodes answered this run, on %d addresses in %d networks; %
       % (label, len(rows), len(rows) + silent, len({r[2] for r in rows}), len({r[5] for r in rows}),
          past_addr, per, past_net, per_net, len(kept), cap))
 # The tree's summary for the status issue -- see scripts/report-status.sh: the
-# seats it filled, how many of its nodes first answered this run, and how many
-# nodes the per-address and per-subnet limits held back, in aggregate.
-busiest_addr = max(collections.Counter(r[2] for r in rows).values(), default=0)
-busiest_net = max(collections.Counter(r[5] for r in rows).values(), default=0)
+# seats it filled, how many of its nodes first answered this run, how many nodes
+# the per-address and per-subnet limits held back, and how the nodes that
+# answered this run spread over addresses and over subnets, as [nodes, how many]
+# pairs, largest first.
+def spread(col):
+    out = []
+    for n in sorted(collections.Counter(r[col] for r in rows).values(), reverse=True):
+        if out and out[-1][0] == n:
+            out[-1][1] += 1
+        else:
+            out.append([n, 1])
+    return out
+
 print("TREE: " + json.dumps({
     "tree": label, "nodes": len(kept), "cap": cap,
     "first_answered": sum(1 for r in kept if str(nodes[r[4]].get("firstResponse") or "") >= start),
-    "held_back": len(rows) - len(eligible), "busiest_address": busiest_addr, "busiest_subnet": busiest_net}))
+    "held_back": len(rows) - len(eligible), "per_address": spread(2), "per_subnet": spread(5)}))
 PYEOF
 }
 

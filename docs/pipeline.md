@@ -118,7 +118,8 @@ a node is down.
 
 **The issue also shows the trees the run built**, one row per network: how many
 nodes each holds against its seats, how many of them first answered that night's
-crawl, and how many nodes the per-address and per-subnet limits held back.
+crawl, how many nodes the per-address and per-subnet limits held back, and how
+the nodes that answered spread over addresses and over `/24` or `/48` networks.
 
 **A run that publishes can still warn**, as when most of a tree's endpoints did
 not answer. The issue shows the latest run's warnings until the next run

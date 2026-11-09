@@ -240,9 +240,9 @@ check only warn, for the reasons given above.
   tree's endpoints did not answer, and the issue shows that run's warnings.
 - **The issue also shows the trees the run built.** One row per network: the
   tree's nodes against its seats, how many of them first answered that run, how
-  many nodes the per-address and per-subnet limits held back, and the most nodes
-  any one address or subnet offered. The figures are aggregates, read from the
-  `TREE:` lines the run prints.
+  many nodes the per-address and per-subnet limits held back, and how the nodes
+  that answered spread over addresses and over `/24` or `/48` networks. The
+  figures are aggregates, read from the `TREE:` lines the run prints.
 - **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
   snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
   reads the `all.*` trees in every sync mode, light included. Adding either spends

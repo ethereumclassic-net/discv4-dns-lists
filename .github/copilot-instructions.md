@@ -165,7 +165,8 @@ run's warnings. The issue also lists whether each bootnode Core-Geth ships
 answered the crawl. A bootnode that misses it does not stop the publish; it gets
 one comment, deleted once it answers again. The issue also shows the trees the
 run built, one row per network: nodes against seats, how many first answered
-that run, and how many nodes the per-address and per-subnet limits held back.
+that run, how many nodes the per-address and per-subnet limits held back, and
+how the nodes that answered spread over addresses and `/24` or `/48` networks.
 Subscribe to the issue for alerts; do not close it.
 
 ## Ask before
