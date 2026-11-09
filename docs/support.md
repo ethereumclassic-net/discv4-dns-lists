@@ -22,8 +22,8 @@ one closed or left: ETCDEV in 2018, ETC Labs in 2021, and the ETC Cooperative,
 which entered maintenance mode at the end of 2024 and is due to dissolve.
 Along the way, the client changed repositories, the bootnodes and
 discovery trees changed operators, and Core-Geth went 21 months without security
-maintenance. A standing legal entity, with the software kept in the community's
-own organization, is meant to end that churn.
+maintenance. A standing legal entity, with the software kept in the
+`ethereumclassic` organization, is meant to end that churn.
 
 With the ETC Cooperative's dissolution, Ethereum Classic stakeholders such as
 mining pools, exchanges and service providers should use

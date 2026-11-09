@@ -40,13 +40,13 @@ compiled in to start from.
 
 ## What replaces them
 
-This repository and the Core-Geth `v1.13` line replace them from the community's
-organization. The trees here are published under three domain names and rebuilt
-every night. The `v1.13` line's bootnodes are run by the Core-Geth maintainers
-and spread across hosting providers and countries. In `v1.13.0`, the three
-Classic bootnodes are with Hetzner in Germany, OVH in the United States and
-Contabo in Singapore, and the two Mordor bootnodes are with Hetzner in Finland and
-OVH in the United States.
+This repository and the Core-Geth `v1.13` line replace them from the
+`ethereumclassic` organization. The trees here are published under three
+domain names and rebuilt every night. The `v1.13` line's bootnodes are run by
+the Core-Geth maintainers and spread across hosting providers and countries. In
+`v1.13.0`, the three Classic bootnodes are with Hetzner in Germany, OVH in the
+United States and Contabo in Singapore, and the two Mordor bootnodes are with
+Hetzner in Finland and OVH in the United States.
 
 **A tree does not go stale the way a bootnode list does.** A client carries a
 tree's URL, which names a domain and a signing key. The nodes behind it are
