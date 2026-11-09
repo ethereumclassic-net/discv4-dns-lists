@@ -62,11 +62,11 @@ is on its network's current fork and makes the tree's cap
 
 Before moving a node you depend on, you can set up one new node on the `v1.13`
 line, on another machine. Let it peer and sync from the network like any node,
-and point no RPC clients or miners at it. Copy nothing to it from a `v1.12`
-node's data directory, which holds that node's P2P node key, and its account
-keys if it has any. The trial is done when the new node has caught up to the
-chain head and holds peers. It is optional and separate from the move itself,
-which keeps the chain data in place.
+or start it from a copy of a stopped `v1.12` node's data directory without its
+`geth/nodekey`, which holds the exposed P2P node key. Point no RPC clients or
+miners at it. The trial is done when the new node has caught up to the chain
+head and holds peers. It is optional and separate from the move itself, which
+keeps the chain data in place.
 
 ## A config file from the v1.12 line
 
