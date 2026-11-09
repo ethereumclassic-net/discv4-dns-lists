@@ -21,11 +21,11 @@ signed with the project key and written to DNS; the node sets are committed here
 as the public audit trail.
 
 These trees continue the discovery service the ETC Cooperative maintained through
-`etclabscore/discv4-dns-lists`, and core-geth's `v1.13` line reads them by default.
+`etclabscore/discv4-dns-lists`, and Core-Geth's `v1.13` line reads them by default.
 The note at the top of `README.md` is the migration guidance for operators.
 
 **This is bootstrap infrastructure for a live network.** A bad publish is not a
-failing build — it is clients that cannot find peers.
+failing build: it is clients that cannot find peers.
 
 **All three domains are served from one Cloudflare account.** That is one DNS
 provider, so do not describe the trees as provider-redundant. The account has no
@@ -50,18 +50,18 @@ There is **no package manifest of any kind** here: no `package.json`, `go.mod`,
 dependency declaration. Do not look for a manifest to update, and do not
 suggest adding one.
 
-- `bash` — `scripts/update-lists.sh`, the whole pipeline
-- `jq` — record counts in the deSEC publisher and the nightly commit message
-- `python3` — everything that reads node records: seed merge and prune, node
-  counts, the fork check, ranking, the run's checks, bootnode status
-- `gh` — `scripts/report-status.sh`, the status issue; preinstalled on GitHub
-  runners
-- `devp2p` — **built from `ethereumclassic/core-geth`**, not from upstream
+- `bash` runs `scripts/update-lists.sh`, the whole pipeline.
+- `jq` counts records in the deSEC publisher and the nightly commit message.
+- `python3` does everything that reads node records: seed merge and prune, node
+  counts, the fork check, ranking, the run's checks, bootnode status.
+- `gh` keeps the status issue, from `scripts/report-status.sh`; it is
+  preinstalled on GitHub runners.
+- `devp2p` is **built from `ethereumclassic/core-geth`**, not from upstream
   go-ethereum, whose copy has no `classic` or `mordor` value for `-eth-network`
-  and rejects them with exit 1. It is built with core-geth's own
+  and rejects them with exit 1. It is built with Core-Geth's own
   `go run build/ci.go install -dlgo`, so the Go that compiles it is the one
-  core-geth's `build/checksums.txt` pins for its releases; this repository pins
-  none
+  Core-Geth's `build/checksums.txt` pins for its releases; this repository pins
+  none.
 
 ## Commands
 
@@ -81,9 +81,9 @@ DEVP2P=/tmp/core-geth/build/bin/devp2p CORE_GETH_SRC=/tmp/core-geth ./scripts/up
 Exit codes: `0` published or dry run clean, `1` refused or failed, `2`
 did-not-run.
 
-No linter or formatter is configured and no CI job runs one — match the existing
-style by hand. `bash -n` parses the script and `shellcheck -S style` is worth
-running, but nothing gates on either.
+No linter or formatter is configured and no CI job runs one, so match the
+existing style by hand. `bash -n` parses the script and `shellcheck -S style` is
+worth running, but nothing gates on either.
 
 ## Structure
 
@@ -91,11 +91,13 @@ running, but nothing gates on either.
 scripts/update-lists.sh                 # seed, crawl, filter, cap, sign, publish
 scripts/report-status.sh                # rewrites the status issue after every run
 .github/workflows/update-dns-lists.yml  # runs it; builds devp2p, handles secrets, commits
+.github/dependabot.yml                  # version updates off, deliberately; see below
 .github/FUNDING.yml                     # the Sponsor button, pointing at docs/support.md
 SECURITY.md                             # how to report a vulnerability privately
 docs/                                   # operator and maintainer docs; README.md routes to them
 all.json                                # working node set, unfiltered, cumulative
 all.<network>.<domain>/nodes.json       # one published tree per network per domain
+all.<network>.<domain>/enrtree-info.json  # that tree's URL, sequence number and signature
 ```
 
 `all.*` directories are **generated output committed by the workflow**. Never
@@ -105,19 +107,19 @@ hand-edit a `nodes.json`.
 
 - **Caps** (`CAP_CLASSIC=120`, `CAP_MORDOR=15`) come from the DNS zone
   budget, not from crawl yield. A Cloudflare free-plan zone holds 200 records and
-  discovery does not get all of it — these domains also carry mail records, the
+  discovery does not get all of it: these domains also carry mail records, the
   apex site and service subdomains. Raising a cap eats that headroom.
 - **Per-address limit** (`MAX_PER_ADDRESS=2`): no address publishes more than
   two nodes, whatever seats are left, because one machine is one point of failure
-  however many node keys it runs. A seat only a host already holding two could
-  fill stays empty.
+  however many node keys it runs. A seat only an address already holding two
+  could fill stays empty.
 - **Per-subnet limit** (`MAX_PER_SUBNET=2`): no `/24`, or `/48` for IPv6,
   publishes more than two either, so a tree spreads across networks as well as
   machines. A `/24` is far narrower than a hosting provider, so the limit does
   not fall on operators who only share one. Both limits are ceilings on the
   ranking, never a ranking of their own.
 - **Floors** (`MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`) are guards against a
-  broken run, **not targets**. Mordor's 5 is deliberate — its ceiling is the
+  broken run, **not targets**. Mordor's 5 is deliberate: its ceiling is the
   network, not the crawl.
 - **Shrink tolerance** (50% of the last *committed* tree) refuses a tree that
   would shrink below half of the last one: a crawl that lost its seed trees, or
@@ -138,7 +140,7 @@ hand-edit a `nodes.json`.
   restrict a tree to nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
   stage. A node on a later hash is left out, never a refusal: the current-fork
-  nodes are the ones serving syncing peers. The pin is not read from core-geth
+  nodes are the ones serving syncing peers. The pin is not read from Core-Geth
   automatically, because a fork is scheduled in its `main` config before the
   release is cut and before it activates on chain; `check_fork_schedule` reads
   that config each run and only warns when the schedule has moved past the pin.
@@ -169,6 +171,14 @@ that run, how many nodes the per-address and per-subnet limits held back, and
 how the nodes that answered spread over addresses and `/24` or `/48` networks.
 Subscribe to the issue for alerts; do not close it.
 
+## Dependency updates
+
+`.github/dependabot.yml` names only `github-actions`, for the workflow's
+SHA-pinned actions, with `open-pull-requests-limit: 0`. Version updates are off
+by decision: there is no manifest, and nobody triages a standing pull-request
+queue. Do not "fix" it into an active config. Dependabot security updates are a
+repository setting that no key in that file turns on or off.
+
 ## Ask before
 
 - **Pushing anything.** Public Ethereum Classic organization repository.
@@ -190,7 +200,7 @@ Subscribe to the issue for alerts; do not close it.
   the private half means rebuilding every release that shipped it. It lives only
   in the `DNS_SIGNING_KEY` secret.
 - **Commit any credential**, DNS API token included.
-- **Use `git add .` or `git add -A`.** Stage named paths — a run leaves
+- **Use `git add .` or `git add -A`.** Stage named paths: a run leaves
   untracked build output beside the trees it should commit.
 - **Add, change, or recommend changing `LICENSE`.** That is the operator's call
   and a legal question before a technical one.

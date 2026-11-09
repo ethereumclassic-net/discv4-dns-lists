@@ -6,22 +6,22 @@ signed with the project key and written to DNS; the resulting node sets are
 committed here as the public audit trail.
 
 These trees continue the discovery service the ETC Cooperative maintained through
-`etclabscore/discv4-dns-lists`, and core-geth's `v1.13` line reads them by default.
+`etclabscore/discv4-dns-lists`, and Core-Geth's `v1.13` line reads them by default.
 The note at the top of `README.md` is the migration guidance for operators; keep
-it consistent with core-geth's own ETC Cooperative transition page.
+it consistent with Core-Geth's own ETC Cooperative transition page.
 
-[`docs/`](docs/) explains *why* each design choice was made and is the reference
-for the mechanism; [README.md](README.md) is the landing page that routes to it.
-This file is what an agent needs in order to work here without breaking
-something.
+[`docs/`](docs/) holds the operator guides, explains *why* each design choice was
+made, and is the reference for the mechanism; [README.md](README.md) is the
+landing page that routes to it. This file is what an agent needs in order to
+work here without breaking something.
 
 **This repository is bootstrap infrastructure for a live network.** A bad publish
-is not a failing build — it is clients that cannot find peers. Every rule below
+is not a failing build: it is clients that cannot find peers. Every rule below
 about refusing, floors and confirmation exists for that reason.
 
 ## Stack
 
-There is **no package manifest of any kind** in this repository — no
+There is **no package manifest of any kind** in this repository: no
 `package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `Makefile` or
 equivalent. Nothing here is installed or built from a dependency declaration.
 That absence is real; do not go looking for a manifest to update.
@@ -39,9 +39,9 @@ That absence is real; do not go looking for a manifest to update.
 Upstream go-ethereum's copy has no `classic` or `mordor` value for
 `-eth-network` and rejects them with exit 1, so a build from the wrong source
 fails the run rather than quietly publishing an empty tree. It is built with
-core-geth's own `go run build/ci.go install -dlgo`, which compiles it with the
-Go that core-geth's `build/checksums.txt` pins for its releases. The version
-moves when core-geth moves that pin, the workflow refuses a binary compiled by
+Core-Geth's own `go run build/ci.go install -dlgo`, which compiles it with the
+Go that Core-Geth's `build/checksums.txt` pins for its releases. The version
+moves when Core-Geth moves that pin, the workflow refuses a binary compiled by
 any other Go, and this repository pins none.
 
 ## Commands
@@ -92,11 +92,13 @@ been misread as a network fault more than once.
 scripts/update-lists.sh              # the whole pipeline: seed, crawl, filter, cap, sign, publish
 scripts/report-status.sh             # rewrites the status issue after every scheduled run
 .github/workflows/update-dns-lists.yml  # runs it; builds devp2p, handles secrets, commits results
+.github/dependabot.yml               # version updates off, deliberately; see "Dependency updates"
 .github/FUNDING.yml                  # the Sponsor button, pointing at docs/support.md
 SECURITY.md                          # how to report a vulnerability privately
 docs/                                # operator and maintainer documentation; README.md routes to it
 all.json                             # working node set, unfiltered, cumulative across runs
 all.<network>.<domain>/nodes.json    # one published tree per network per domain
+all.<network>.<domain>/enrtree-info.json  # that tree's URL, sequence number and signature
 ```
 
 The `all.*` directories are **generated output committed by the workflow**, not
@@ -144,56 +146,56 @@ publisher is configured, so selecting that branch fails rather than publishing.
 Change none of these without reading the reasoning in `docs/pipeline.md`,
 `docs/node-selection.md` and the script's own comments first.
 
-- **Caps** — `CAP_CLASSIC=120`, `CAP_MORDOR=15`. Derived from the DNS zone
+- **Caps:** `CAP_CLASSIC=120`, `CAP_MORDOR=15`. Derived from the DNS zone
   budget, not from crawl yield. A tree of N nodes costs N + 1 root + ~1 branch
   per 11 nodes, so 120 → ~132 records and 15 → ~18, **~150 together**. A
-  Cloudflare free-plan zone holds 200 for the whole zone, not per tree — both
+  Cloudflare free-plan zone holds 200 for the whole zone, not per tree: both
   trees share it, alongside mail records, the apex site and service subdomains,
   and whatever the zone already holds. Raising either cap eats that headroom.
-- **Per-address limit** — `MAX_PER_ADDRESS=2`. No address publishes more than two
+- **Per-address limit:** `MAX_PER_ADDRESS=2`. No address publishes more than two
   nodes, whatever seats are left, because one machine is one point of failure
   however many node keys it runs. A seat only an address already holding two
   could fill stays empty.
-- **Per-subnet limit** — `MAX_PER_SUBNET=2`. No `/24`, or `/48` for IPv6, publishes
+- **Per-subnet limit:** `MAX_PER_SUBNET=2`. No `/24`, or `/48` for IPv6, publishes
   more than two nodes either, so a tree spreads across networks as well as
   machines. A `/24` is far narrower than a hosting provider, so the limit does not
   fall on operators who only share one. Both limits are ceilings on the ranking,
   never a ranking of their own: the nodes an address or subnet keeps are its
   best-ranked ones.
-- **Floors** — `MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`. These are floors
+- **Floors:** `MIN_NODES_CLASSIC=40`, `MIN_NODES_MORDOR=5`. These are floors
   against a broken run, **not targets**. `MIN_NODES_MORDOR` is 5, well below a
   normal night's Mordor count, deliberately: Mordor's ceiling is the network, not
   the crawl, and a floor scaled from classic's numbers would refuse every
   legitimate Mordor publish. Each night's counts are in its commit message.
-- **Shrink tolerance** — 50% of the last *committed* tree. A tree that would
+- **Shrink tolerance:** 50% of the last *committed* tree. A tree that would
   shrink below half of the last one is refused. It is the guard against a crawl
   that lost its seed trees, and, since only nodes that answered are published,
   it also refuses a night on which most of a tree's nodes did not answer, until
   enough of them answer again. It reads its baseline from
   `git show HEAD:<dir>/nodes.json`, **so the commit step is load-bearing**: if
   trees are never committed there is no baseline and the check cannot fire.
-- **Reach** — `REACH_MIN_PCT=50`. Before any tree is built, the run refuses if
+- **Reach:** `REACH_MIN_PCT=50`. Before any tree is built, the run refuses if
   the crawl reached fewer than half of the nodes that answered an earlier run.
   This is the guard against the runner's own connectivity failing, which marks
   every node as failing at once: it refuses the whole run and names the cause,
   where the floors and the shrink check would only see a small tree. The crawl
   set holds nodes of every network, so its answer rate measures the runner, not
   Ethereum Classic.
-- **Retention** — `RETENTION_MIN_PCT=50`. The run warns on the status issue,
+- **Retention:** `RETENTION_MIN_PCT=50`. The run warns on the status issue,
   without refusing, if fewer than half of a tree's last published endpoints
   answered under any key. Operators rotating keys together can silence most of a
   tree at once, as the move to the `v1.13` line asks, and a refusal on that count
   would repeat every night against the same committed tree.
-- **Fork hashes** — `FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`. A
+- **Fork hashes:** `FORK_HASH_CLASSIC=be46d57c`, `FORK_HASH_MORDOR=3a6b00d7`. A
   published tree keeps only nodes on its network's current fork hash, because
   `-eth-network` admits every stage of the fork schedule, including the genesis
   stage that unsynced and non-ETC nodes advertise. A node on a later hash is left
   out, never a refusal: the nodes still on the current fork are the ones serving
   syncing peers, so they stay published until a human bumps the pin. The pin does
-  not follow core-geth automatically, because a fork lands in core-geth's `main`
+  not follow Core-Geth automatically, because a fork lands in Core-Geth's `main`
   config before its release is cut and before it activates on chain, while the
   current-fork nodes keep serving until then. `check_fork_schedule` reads
-  core-geth's own config each run and only warns when the schedule has moved past
+  Core-Geth's own config each run and only warns when the schedule has moved past
   the pin. Change a pin only when the network has passed a fork, taking the value
   from `ethereumclassic/core-geth`'s `params/config_classic.go` and
   `params/config_mordor.go` (`core/forkid/forkid_test.go` cross-checks the
@@ -209,7 +211,7 @@ check only warn, for the reasons given above.
 ## Facts that mislead if you do not know them
 
 - **The node set is cumulative.** `devp2p discv4 crawl` appends to an existing
-  set rather than replacing it. One crawl sees one moment — a low cold-start
+  set rather than replacing it. One crawl sees one moment, so a low cold-start
   yield is not a broken crawl.
 - **Seeding is reach, not trust.** The pipeline seeds from published trees, its
   own and the predecessor's for as long as they resolve, then the crawl re-pings
@@ -243,8 +245,8 @@ check only warn, for the reasons given above.
   many nodes the per-address and per-subnet limits held back, and how the nodes
   that answered spread over addresses and over `/24` or `/48` networks. The
   figures are aggregates, read from the `TREE:` lines the run prints.
-- **Only `all.*` trees are published.** No `snap.*` — no core-geth path points
-  snap discovery at one on any network. No `les.*` — core-geth's `v1.13` line
+- **Only `all.*` trees are published.** No `snap.*`: no Core-Geth path points
+  snap discovery at one on any network. No `les.*`: Core-Geth's `v1.13` line
   reads the `all.*` trees in every sync mode, light included. Adding either spends
   the record budget on trees nothing reads.
 - **Contact addresses are on `ethereumclassic.net`**, the domain for the public
@@ -331,9 +333,12 @@ why there are two secrets and not one.
 ## Conventions
 
 - **Verify by effect, and calibrate the check so it can fail.** A check that
-  cannot report a negative proves nothing. This applies to gitignore coverage
-  (`git check-ignore --no-index -q -- <path>`, never `-v` as the condition), to
-  DNS lookups, and to any claim that something works.
+  cannot report a negative proves nothing. This applies to gitignore coverage,
+  `git -c core.excludesFile=/dev/null check-ignore --no-index -q -- <path>`:
+  `--no-index` checks a tracked file against the patterns too, and the `-c`
+  keeps a machine-wide ignore file from answering for this repository. Never use
+  `-v` as the condition, since it exits 0 on a negated pattern. It applies as
+  well to DNS lookups, and to any claim that something works.
 - **Comments carry reasoning, not description.** The existing code explains why a
   number is what it is and what breaks if it changes. Match that.
 - **Prefer refusing to guessing.** Every failure path in the pipeline exits

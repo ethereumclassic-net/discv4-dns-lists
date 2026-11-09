@@ -18,8 +18,9 @@ disagreeing, `AGENTS.md` wins.
 
 ## Model selection
 
-Select by role, using the tier alias — an alias resolves to the newest model in
-its tier, so it does not go stale the way a model name does.
+Select by role, using the tier alias. An alias points to the recommended model
+in its tier and moves as new models ship, so it does not go stale the way a
+model name does.
 
 | Alias | Use it for |
 |---|---|
@@ -29,25 +30,28 @@ its tier, so it does not go stale the way a model name does.
 
 Switch with `/model haiku`, `/model sonnet`, `/model opus`. Current prices,
 context windows and the model behind each alias are documented at
-<https://platform.claude.com/docs/en/about-claude/models/overview>.
+<https://platform.claude.com/docs/en/models/overview>.
 
 ## Machine-local context
 
-Anything specific to one contributor's machine — local checkout paths, personal
-tool locations, private working notes — belongs in `CLAUDE.local.md` at this
-repository's root, never in this file or in `AGENTS.md`. Both of those are
-committed and travel to every clone.
+Anything specific to one contributor's machine, such as local checkout paths,
+personal tool locations and private working notes, belongs in `CLAUDE.local.md`
+at this repository's root, never in this file or in `AGENTS.md`. Both of those
+are committed and travel to every clone.
 
 Confirm `CLAUDE.local.md` is actually ignored before writing one, by effect
 rather than by reading the patterns:
 
 ```bash
-git check-ignore --no-index -q -- CLAUDE.local.md && echo ignored || echo "NOT ignored"
-git check-ignore --no-index -q -- README.md && echo "check is broken" || echo "check discriminates"
+git -c core.excludesFile=/dev/null check-ignore --no-index -q -- CLAUDE.local.md && echo ignored || echo "NOT ignored"
+git -c core.excludesFile=/dev/null check-ignore --no-index -q -- README.md && echo "check is broken" || echo "check discriminates"
 ```
 
-The second line is the calibration. A check that cannot report "not ignored" is
-not checking anything, and its all-clear means nothing.
+`--no-index` checks a tracked file against the patterns too, and
+`-c core.excludesFile=/dev/null` keeps a machine-wide ignore file from
+answering, so the result is this repository's own. The second line is the
+calibration. A check that cannot report "not ignored" is not checking anything,
+and its all-clear means nothing.
 
 ## Response style
 
