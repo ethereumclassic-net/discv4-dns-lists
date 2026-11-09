@@ -49,7 +49,7 @@ download it again rather than running it.
 On an Arm machine, put the name for your processor where the file name says
 `linux`, here and in step 3: `arm64` if `uname -m` prints `aarch64` or `arm64`,
 `arm7` for `armv7l`, `arm6` for `armv6l`, and `arm5` for `armv5tel`.
-[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists every
+[coregeth.com/downloads](https://coregeth.com/downloads/) lists every
 file the release carries.
 
 Then check where the file came from. It matters most on a node that holds

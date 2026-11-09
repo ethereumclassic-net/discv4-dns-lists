@@ -31,7 +31,7 @@ There is nothing to configure unless the node starts from a config file, or with
 a discovery flag added on the `v1.12` line. Both networks read their three trees
 by default, in every sync mode. Releases are published at
 [`ethereumclassic/core-geth`](https://github.com/ethereumclassic/core-geth/releases/latest),
-and [coregeth.com/downloads](https://coregeth.com/downloads/#install) lists every
+and [coregeth.com/downloads](https://coregeth.com/downloads/) lists every
 file a release carries, with its checksum.
 
 A config file that names bootnodes or trees, as one `geth dumpconfig` wrote on a

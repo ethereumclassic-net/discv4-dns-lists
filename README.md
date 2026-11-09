@@ -64,7 +64,7 @@ from it, and take out any `--discovery.dns` or `--bootnodes` added on the
 
 **Core-Geth `v1.12` line:** move the node to the `v1.13` line.
 [Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps, and
-[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists the
+[coregeth.com/downloads](https://coregeth.com/downloads/) lists the
 release files and their checksums. Until the node can move, stop it cleanly and
 add `--discovery.dns` with the three trees for its network to the command or
 unit it already starts with, keeping its other flags:

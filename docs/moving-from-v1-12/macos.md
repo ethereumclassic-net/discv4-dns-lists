@@ -39,7 +39,7 @@ shasum -a 256 -c core-geth-osx-arm64-$VERSION.zip.sha256
 On an Intel Mac, where it prints `x86_64`, put `osx` where the file name says
 `osx-arm64`, here and in step 3. `shasum -a 256 -c` must print `OK`. If it
 prints `FAILED`, delete the file and download it again rather than running it.
-[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists every
+[coregeth.com/downloads](https://coregeth.com/downloads/) lists every
 file the release carries.
 
 `curl` leaves no quarantine attribute on the file. If you download through a

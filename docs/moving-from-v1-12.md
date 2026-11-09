@@ -30,7 +30,7 @@ ID, download the release, stop the node cleanly, install the release, rotate the
 P2P node key, check the flags and the config file, start the node and confirm
 the move, and delete the `v1.12` binary or container once the node is stable.
 Each guide also says how to roll back while you find what went wrong.
-[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists every
+[coregeth.com/downloads](https://coregeth.com/downloads/) lists every
 file a release carries, with its checksum.
 
 ## What the move keeps, and what it changes

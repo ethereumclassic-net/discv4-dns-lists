@@ -43,7 +43,7 @@ The last two lines of output are the file's hash, then the published hash
 followed by the file name. The 64 characters before the file name must match the
 file's hash; case does not matter. If they differ, delete the file and download
 it again rather than running it.
-[coregeth.com/downloads](https://coregeth.com/downloads/#upgrade)
+[coregeth.com/downloads](https://coregeth.com/downloads/)
 lists every file the release carries.
 
 Then check where the file came from. It matters most on a node that holds
