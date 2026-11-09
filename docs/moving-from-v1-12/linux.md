@@ -20,8 +20,8 @@ geth attach --exec 'admin.nodeInfo.enode' ~/.ethereum/classic/geth.ipc
 
 Keep the last line's output. It is the node's enode ID, which step 4 changes.
 
-If the node runs as a systemd service under its own user, as in Core-Geth's
-[Linux run guide](https://docs.coregeth.com/getting-started/run/linux/#6-keep-it-running-a-systemd-service),
+If the node runs as a systemd service under its own user, as in the Core-Geth
+documentation's [Linux run guide](https://docs.coregeth.com/getting-started/run/linux/#6-keep-it-running-a-systemd-service),
 that user owns the data directory, `/var/lib/core-geth` there. Attach as that
 user, here and in every later attach line:
 

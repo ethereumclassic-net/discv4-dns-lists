@@ -60,8 +60,8 @@ It must print `Verification succeeded`. If it does not, do not run the file.
 
 - **In a terminal:** press Ctrl-C once and wait. A second Ctrl-C does not speed
   it up.
-- **As a launchd agent:** unload it. For the agent in Core-Geth's
-  [macOS run guide](https://docs.coregeth.com/getting-started/run/macos/#7-stop-it-cleanly),
+- **As a launchd agent:** unload it. For the agent in the Core-Geth
+  documentation's [macOS run guide](https://docs.coregeth.com/getting-started/run/macos/#7-stop-it-cleanly),
   with `NETWORK` set to `classic` or `mordor`:
 
   ```bash
