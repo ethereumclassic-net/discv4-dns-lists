@@ -31,7 +31,8 @@ developers and community contributors.
 > requires: one of those flaws leaks bits of the old key.
 > [Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps for Linux,
 > macOS, Windows and Docker. A node that cannot move yet can switch to these trees
-> with [one flag](#quick-start), a small step that closes none of those flaws.
+> and the `v1.13` line's bootnodes, a [small step](#quick-start) that closes none
+> of those flaws.
 
 ## The trees
 
@@ -71,9 +72,12 @@ unit it already starts with, keeping its other flags:
 geth --classic --discovery.dns "enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.network"
 ```
 
-A node started from a config file that names trees needs them in place of the
-file's own. [Using the trees](docs/using-the-trees.md#core-geth-v112-line) has
-that form and the Mordor one.
+Add `--bootnodes` to the same line, with the bootnodes the `v1.13` line ships:
+[Keep a v1.12 node finding peers](https://coregeth.com/guides/discovery/#steps)
+on coregeth.com gives the start line with both flags for each platform. A node
+started from a config file that names trees needs them in place of the file's
+own. [Using the trees](docs/using-the-trees.md#core-geth-v112-line) has that
+form and the Mordor one.
 
 ## Documentation
 

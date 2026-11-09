@@ -34,7 +34,8 @@ takes the twenty Classic nodes with the highest scores, the ones that have kept
 answering the nightly crawl, and passes them to the node as bootnodes. Add the
 flag to the command the node already starts with, and keep its other flags: a
 node on `--datadir` that runs this line as it stands starts an empty chain in the
-default directory.
+default directory. If the command already has `--bootnodes`, put this one in its
+place for that start.
 
 ```bash
 geth --classic --bootnodes "$(curl -fsSL https://raw.githubusercontent.com/ethereumclassic/discv4-dns-lists/main/all.classic.ethereumclassic.net/nodes.json \

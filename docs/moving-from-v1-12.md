@@ -4,7 +4,7 @@ This page is for a node on the Core-Geth `v1.12` line. Every such node should
 move to the [`v1.13`](https://github.com/ethereumclassic/core-geth/releases/latest)
 line, which reads the trees this repository publishes by default and closes the
 flaws [the audits](https://coregeth.com/security/) found in `v1.12`. A node that
-cannot move yet can [switch to these trees with one flag](#if-a-node-cannot-move-yet),
+cannot move yet can [switch to these trees and the `v1.13` line's bootnodes](#if-a-node-cannot-move-yet),
 a small step that closes none of those flaws.
 
 The steps are for `v1.12.17` and later. A release before `v1.12.17` does not
@@ -133,9 +133,13 @@ variables it starts with, and, if it starts with `--config`, in the file's
 
 `--discovery.dns` points a `v1.12` node at the trees published here, the ones
 the `v1.13` line reads by default, so it keeps finding peers after the trees it
-reads by default stop being updated. It is a small step, and the node stays
-vulnerable: the flag closes none of the flaws the audits found in `v1.12`. The
-flag sets only `EthDiscoveryURLs`, so a node started from a config file that
-names trees needs them replaced in the file as well.
-[Using the trees](using-the-trees.md#core-geth-v112-line) gives the flag for each
-network, the config-file form, and how to add it to a service or a container.
+reads by default stop being updated, and `--bootnodes` points it at the
+bootnodes the `v1.13` line ships. Both are a small step, and the node stays
+vulnerable: they close none of the flaws the audits found in `v1.12`.
+`--discovery.dns` sets only `EthDiscoveryURLs`, so a node started from a config
+file that names trees needs them replaced in the file as well.
+[Using the trees](using-the-trees.md#core-geth-v112-line) gives the trees for
+each network, the config-file form, and how to add the flags to a service or a
+container.
+[Keep a v1.12 node finding peers](https://coregeth.com/guides/discovery/) on
+coregeth.com has the steps for each platform with both flags.

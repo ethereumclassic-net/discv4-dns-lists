@@ -31,10 +31,12 @@ compiled in to start from.
 > **Move a `v1.12` node to the `v1.13` line, which reads the community-maintained
 > trees by default** and closes the flaws [the audits](https://coregeth.com/security/)
 > found in `v1.12`. [Moving a v1.12 node](moving-from-v1-12.md) has the steps for
-> each platform. A node that cannot move yet can switch to the trees with one flag,
-> a small step that closes none of those flaws.
-> [Using the trees](using-the-trees.md#core-geth-v112-line) shows the
-> `--discovery.dns` flag for each network, and the same list in a config file.
+> each platform. A node that cannot move yet can switch to the trees and the
+> `v1.13` line's bootnodes, a small step that closes none of those flaws.
+> [Using the trees](using-the-trees.md#core-geth-v112-line) shows the flags and
+> the config-file form, and
+> [Keep a v1.12 node finding peers](https://coregeth.com/guides/discovery/) on
+> coregeth.com has the steps for each platform.
 
 ## What replaces them
 

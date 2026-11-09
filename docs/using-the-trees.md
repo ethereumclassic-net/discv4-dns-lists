@@ -47,24 +47,29 @@ Move the node to the `v1.13` line, which reads these trees by default and closes
 the flaws [the audits](https://coregeth.com/security/) found in `v1.12`.
 [Moving a v1.12 node](moving-from-v1-12.md) has the steps for each platform.
 
-Until a node can move, `--discovery.dns` points it at these trees. Every `v1.12`
-release has it, and so does any build of that code. The flag is a small step,
-and the node stays vulnerable: it closes none of those flaws. Stop the node
-cleanly, as step 2 of each [platform guide](moving-from-v1-12.md#choose-your-guide)
-shows, then add the flag to the command or unit you start it with:
+Until a node can move, `--discovery.dns` points it at these trees and
+`--bootnodes` at the bootnodes the `v1.13` line ships. Every `v1.12` release has
+both flags, and so does any build of that code. They are a small step, and the
+node stays vulnerable: they close none of those flaws. Stop the node cleanly, as
+step 2 of each [platform guide](moving-from-v1-12.md#choose-your-guide) shows,
+then add `--discovery.dns` to the command or unit you start it with:
 
 ```sh
 geth --classic --discovery.dns "enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethclassic.net,enrtree://APDLRZ2T7ERXPWXX4D5USB32NIFYHXMFVZQ3DZALK6JJJ5L4VSYIQ@all.classic.ethereumclassic.network"
 ```
 
+Add `--bootnodes` to the same line, with the bootnodes the `v1.13` line ships:
+[Keep a v1.12 node finding peers](https://coregeth.com/guides/discovery/#steps)
+on coregeth.com gives the start line with both flags for each platform.
+
 Keep the node's other flags: a node on `--datadir` that runs this line as it
 stands starts an empty chain in the default directory. For Mordor, use
 `--mordor` and the three `all.mordor.` URLs. On Windows, run
-`.\geth.exe` in place of `geth`. Under systemd, add the flag to the unit's
+`.\geth.exe` in place of `geth`. Under systemd, add the flags to the unit's
 `ExecStart` line and run `sudo systemctl daemon-reload` before you start it. A
 container cannot take a new flag. Stop it with `docker stop -t 300`, then
 replace it with a new container from the same `v1.12` image, on the same data,
-with its other flags and `--discovery.dns` after the image name;
+with its other flags, `--discovery.dns` and `--bootnodes` after the image name;
 `docker inspect <container> --format '{{.Config.Image}}'` prints that image.
 First check where it keeps its data, as
 [Before you start](moving-from-v1-12/docker.md#before-you-start) in the Docker
@@ -93,14 +98,14 @@ SnapDiscoveryURLs = [
 ]
 ```
 
-The flag replaces only `EthDiscoveryURLs`, so with the flag alone such a node
-keeps finding snap peers through the `v1.12` trees left in `SnapDiscoveryURLs`.
+Under `[Node.P2P]`, delete any `BootstrapNodes` and `BootstrapNodesV5` lines:
+`--bootnodes` takes their place. With the file changed, leave `--discovery.dns`
+off the start line: it sets only `EthDiscoveryURLs`, and the file now sets both.
 
 The trees you give replace the release's built-in trees instead of adding to
-them. The node needs no working bootnode to use them, because it dials the nodes
-in a tree directly. To start from the `v1.13` line's bootnodes as well, pass
-them with `--bootnodes`, which likewise replaces the built-in list; their
-addresses are in that network's `params` file linked above.
+them, and the bootnodes replace its built-in bootnodes. The node needs no
+working bootnode to use the trees, because it dials the nodes in a tree
+directly.
 
 ## If the trees do not resolve
 
