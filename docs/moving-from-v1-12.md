@@ -9,7 +9,11 @@ a small step that closes none of those flaws.
 
 The steps are for `v1.12.17` and later. A release before `v1.12.17` does not
 schedule the Spiral upgrade, so a node on one left Ethereum Classic at block
-19,250,000 and does not resume where it stopped.
+19,250,000 and cannot move in place. Remove its chain database as
+[Resync from scratch](https://docs.coregeth.com/operate/maintenance/#resync-from-scratch)
+shows, which keeps the node's P2P node key. Then install the `v1.13` release and
+rename that key as your platform's guide does, and start the node, which syncs
+the chain again.
 
 ## Choose your guide
 
@@ -31,15 +35,15 @@ file a release carries, with its checksum.
 
 ## What the move keeps, and what it changes
 
-**The chain data stays where it is.** The `v1.12` and `v1.13` lines use the same
-data directory for each network, so the new release opens the chain the old one
-wrote, and nothing resyncs: only a container that keeps its data inside itself
-needs a copy. The node is down from the clean stop until it has caught up after
-the start: while you install the release, rename the key and check its flags
-and config file, and while it then catches up on the blocks it missed. Point
-RPC clients and miners back at it only then. The steps take about twenty
-minutes; a build from source, or a copy of a container's data, takes longer.
-The account keystore is not touched.
+**From `v1.12.17` on, the chain data stays where it is.** The `v1.12` and
+`v1.13` lines use the same data directory for each network, so the new release
+opens the chain the old one wrote, and nothing resyncs: only a container that
+keeps its data inside itself needs a copy. The node is down from the clean stop
+until it has caught up after the start: while you install the release, rename
+the key and check its flags and config file, and while it then catches up on the
+blocks it missed. Point RPC clients and miners back at it only then. The steps
+take about twenty minutes; a build from source, or a copy of a container's data,
+takes longer. The account keystore is not touched.
 
 **The P2P node key changes, and that is required.** One of the flaws in
 `v1.12`, CVE-2026-26315, leaks bits of the node key across repeated handshakes,

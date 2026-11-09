@@ -27,8 +27,9 @@ developers and community contributors.
 >
 > Every node on the `v1.12` line should move to the `v1.13` line, which also
 > closes the flaws [the audits](https://coregeth.com/security/) found in `v1.12`.
-> The node keeps its chain data and gets a new P2P node key, which the move
-> requires: one of those flaws leaks bits of the old key.
+> From `v1.12.17` on, the node keeps its chain data and gets a new P2P node key,
+> which the move requires: one of those flaws leaks bits of the old key. A node
+> on an older release resyncs instead.
 > [Moving a v1.12 node](docs/moving-from-v1-12.md) has the steps for Linux,
 > macOS, Windows and Docker. A node that cannot move yet can switch to these trees
 > and the `v1.13` line's bootnodes, a [small step](#quick-start) that closes none
@@ -84,7 +85,7 @@ form and the Mordor one.
 | Page | What it covers |
 |---|---|
 | [Using the trees](docs/using-the-trees.md) | Pointing any Core-Geth release at these trees |
-| [Moving a v1.12 node](docs/moving-from-v1-12.md) | Moving a node to the `v1.13` line on Linux, macOS, Windows or Docker, keeping its chain data |
+| [Moving a v1.12 node](docs/moving-from-v1-12.md) | Moving a node on `v1.12.17` or later to the `v1.13` line on Linux, macOS, Windows or Docker, keeping its chain data |
 | [Verifying a tree](docs/verifying-a-tree.md) | Checking what DNS serves against what this repository recorded |
 | [DNS hosting and outages](docs/dns-outage.md) | What a DNS outage affects, and starting a node without the trees |
 | [How nodes are chosen](docs/node-selection.md) | What gets a node listed, the current fork ID, and tree size |
