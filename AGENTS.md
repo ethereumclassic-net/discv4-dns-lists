@@ -343,5 +343,6 @@ why there are two secrets and not one.
   number is what it is and what breaks if it changes. Match that.
 - **Prefer refusing to guessing.** Every failure path in the pipeline exits
   rather than continuing with a degraded result.
-- **Branching:** work lands on `main`. Inferred from history — the repository has
-  a single branch and no recorded policy. Confirm before assuming it is settled.
+- **Branching:** work lands directly on `main` (maintainer decision,
+  2026-11-09). Commits and pushes still wait for the maintainer's word, as
+  Boundaries says.

@@ -206,6 +206,11 @@ repository setting that no key in that file turns on or off.
   and a legal question before a technical one.
 - **Publish a tree that failed a check**, or weaken a check so a tree passes.
 
+## Branching
+
+Work lands directly on `main` (maintainer decision, 2026-11-09). Commits and
+pushes still wait for the maintainer's word.
+
 ## Response style
 
 - Code and commands first; explain only what was asked about.
