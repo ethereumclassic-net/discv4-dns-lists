@@ -96,7 +96,7 @@ shows where yours is, and a systemd unit names the binary it starts in its
 `ExecStart` line. If it is elsewhere, put its folder in place of
 `/usr/local/bin` everywhere in the block, and end with `<folder>/geth version`:
 a bare `geth version` runs whichever `geth` comes first on `PATH`. Use the same
-folder in the rollback line and in the install lines of
+folder in the rollback and cleanup lines and in the install lines of
 [Building from source](#building-from-source).
 
 If you built from source in step 1, install that build as
@@ -222,18 +222,35 @@ if it is in both. They open no connection, so for an entry only in
 
 ## If you need to roll back
 
-The data directory works with both releases, so rolling back swaps the binary.
-Stop the node, take any `--mess` flag out of its start command, and under
-systemd run `sudo systemctl daemon-reload`. Then put the old binary back and
-start the node:
+Roll back only for as long as it takes to find what went wrong: every `v1.12`
+release carries the flaws the audits found. The data directory works with both
+releases, so rolling back swaps the binary. Stop the node, take any `--mess`
+flag out of its start command, and under systemd run
+`sudo systemctl daemon-reload`. Then put the old binary back and start the node:
 
 ```bash
 sudo mv /usr/local/bin/geth-v1.12 /usr/local/bin/geth
 ```
 
 Keep the new key: rolling back does not make the old one safe, and a release
-before `v1.12.21` leaks the new key as it did the old one: move to the `v1.13`
-line again as soon as you can, rotating the key again in step 4.
+before `v1.12.21` leaks the new key as it did the old one. Once the cause is
+fixed, move to the `v1.13` line again with these steps, rotating the key again
+in step 4. A second rename on the same day finds its target name taken, so add
+`-2` after `$(date +%F)` in it. If the node has to stay on `v1.12` longer, point
+it at this repository's trees and the `v1.13` line's bootnodes, as
+[Using the trees](../using-the-trees.md#core-geth-v112-line) shows.
+
+## Once the node is stable, delete the v1.12 binary
+
+Once the node has caught up, holds peers, and has run on the `v1.13` line long
+enough that you will not roll back:
+
+```bash
+sudo rm /usr/local/bin/geth-v1.12
+```
+
+Every `v1.12` release carries the flaws the audits found, so a copy left on the
+machine is one a later mistake can start.
 
 ## Building from source
 

@@ -24,7 +24,8 @@ Each guide takes the same steps, in an order that keeps the node running until
 the new release is downloaded and checked: record the node's block number and
 ID, download the release, stop the node cleanly, install the release, rotate the
 P2P node key, check the flags and the config file, start the node and confirm
-the move, and roll back if you need to.
+the move, and delete the `v1.12` binary or container once the node is stable.
+Each guide also says how to roll back while you find what went wrong.
 [coregeth.com/downloads](https://coregeth.com/downloads/#upgrade) lists every
 file a release carries, with its checksum.
 

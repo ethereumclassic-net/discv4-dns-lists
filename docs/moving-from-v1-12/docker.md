@@ -236,6 +236,9 @@ if it is in both. They open no connection, so for an entry only in
 
 ## If you need to roll back
 
+Roll back only for as long as it takes to find what went wrong: every `v1.12`
+release carries the flaws the audits found.
+
 **If you copied the data out**, do not start the old container: its own copy of
 the data still holds the old key. Stop and remove the new container, then run
 the image the old one used,
@@ -258,5 +261,27 @@ Put the restart policy you noted in step 5 in place of `unless-stopped`. The old
 container starts with the flags it always had.
 
 Keep the new key either way: rolling back does not make the old one safe, and a
-release before `v1.12.21` leaks the new key as it did the old one: move to the
-`v1.13` line again as soon as you can, rotating the key again in step 3.
+release before `v1.12.21` leaks the new key as it did the old one. Once the cause
+is fixed, move to the `v1.13` line again with these steps, rotating the key again
+in step 3. A second rename on the same day finds its target name taken, so add
+`-2` after `$(date +%F)` in it. If the node has to stay on `v1.12` longer, point
+it at this repository's trees and the `v1.13` line's bootnodes, as
+[Using the trees](../using-the-trees.md#core-geth-v112-line) shows.
+
+## Once the node is stable, remove the v1.12 container and image
+
+Once the node has caught up, holds peers, and has run on the `v1.13` line long
+enough that you will not roll back:
+
+```bash
+OLD=$(docker inspect core-geth-v1.12 --format '{{.Config.Image}}') &&
+  docker rm core-geth-v1.12 &&
+  docker rmi "$OLD"
+```
+
+Every `v1.12` release carries the flaws the audits found, so a container left on
+the machine is one a later mistake can start. The first line reads which image
+the old container ran, and the block removes the stopped container and that
+image. `docker rm` leaves the volumes the new container uses. If you copied the
+data out, the old container's own copy of the data, which holds the old key,
+goes with it. `docker rmi` refuses while another container still uses the image.
