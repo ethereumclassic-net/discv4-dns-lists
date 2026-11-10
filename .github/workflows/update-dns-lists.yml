@@ -37,7 +37,8 @@ jobs:
     # fork would run the schedule against its own (absent) secrets, failing
     # nightly and forever.
     if: github.repository == 'ethereumclassic/discv4-dns-lists'
-    runs-on: ubuntu-latest
+    # Pinned: a newer image is adopted by changing this line.
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Check out this repository
